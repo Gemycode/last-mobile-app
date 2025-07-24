@@ -4,9 +4,30 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Colors } from '../constants/Colors';
 
 interface AuthLayoutProps {
-  title: string;
+  title: React.ReactNode;
   subtitle: string;
   children: React.ReactNode;
+}
+
+// دالة recursive لتغليف أي نص أو رقم في أي عمق
+function wrapTextNodes(node: React.ReactNode): React.ReactNode {
+  if (typeof node === 'string' || typeof node === 'number') {
+    return <Text>{node}</Text>;
+  }
+  if (Array.isArray(node)) {
+    return node.map((child, idx) => <React.Fragment key={idx}>{wrapTextNodes(child)}</React.Fragment>);
+  }
+  if (React.isValidElement(node)) {
+    const element = node as React.ReactElement<any>;
+    if (element.props && element.props.children) {
+      return React.cloneElement(element, {
+        ...element.props,
+        children: wrapTextNodes(element.props.children),
+      });
+    }
+    return element;
+  }
+  return null;
 }
 
 export default function AuthLayout({ title, subtitle, children }: AuthLayoutProps) {
@@ -18,7 +39,7 @@ export default function AuthLayout({ title, subtitle, children }: AuthLayoutProp
       </View>
       
       <View style={styles.content}>
-        {children}
+        {wrapTextNodes(children)}
       </View>
     </SafeAreaView>
   );

@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, StyleSheet, ViewStyle } from 'react-native';
+import { View, StyleSheet, ViewStyle, Text } from 'react-native';
 import { Colors } from '../constants/Colors';
 
 interface CardProps {
@@ -7,10 +7,31 @@ interface CardProps {
   style?: ViewStyle;
 }
 
+// دالة recursive لتغلف أي نص أو رقم في أي عمق
+function wrapTextNodes(node: React.ReactNode): React.ReactNode {
+  if (typeof node === 'string' || typeof node === 'number') {
+    return <Text>{node}</Text>;
+  }
+  if (Array.isArray(node)) {
+    return node.map((child, idx) => <React.Fragment key={idx}>{wrapTextNodes(child)}</React.Fragment>);
+  }
+  if (React.isValidElement(node)) {
+    const element = node as React.ReactElement<any>;
+    if (element.props && element.props.children) {
+      return React.cloneElement(element, {
+        ...element.props,
+        children: wrapTextNodes(element.props.children),
+      });
+    }
+    return element;
+  }
+  return null;
+}
+
 export default function Card({ children, style }: CardProps) {
   return (
     <View style={[styles.card, style]}>
-      {children}
+      {wrapTextNodes(children)}
     </View>
   );
 }
