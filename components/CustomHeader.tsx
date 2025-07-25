@@ -169,7 +169,7 @@ export default function CustomHeader({ title, subtitle, showBackButton, onMenuPr
               </React.Fragment>
             ))}
             {/* زر تسجيل الخروج */}
-            <TouchableOpacity style={styles.logoutButton} onPress={async () => { closeDropdown(); await logout(); router.replace('/'); }}>
+            <TouchableOpacity style={styles.logoutButton} onPress={async () => { closeDropdown(); await logout(); router.replace('/(auth)/login'); }}>
               <View style={styles.itemRow}>
                 <LogOut size={20} color={Colors.error} style={styles.itemIcon} />
                 <Text style={styles.logoutText}>Logout</Text>
