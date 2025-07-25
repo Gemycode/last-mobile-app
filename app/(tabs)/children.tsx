@@ -96,7 +96,7 @@ export default function ChildrenScreen() {
           </View>
         </View>
       </View>
-      {/* أزرار Edit, Delete, Add في الأسفل */}
+      {/* أزرار Edit, Delete في الأسفل */}
       <View style={{ flexDirection: 'row', justifyContent: 'flex-end', alignItems: 'center', marginTop: 12 }}>
         <TouchableOpacity onPress={() => openEditModal(child)} style={{ marginRight: 12 }}>
           <Text style={{ color: Colors.primary, fontWeight: 'bold' }}>Edit</Text>
@@ -112,29 +112,6 @@ export default function ChildrenScreen() {
           );
         }} style={{ marginRight: 12 }}>
           <Text style={{ color: 'red', fontWeight: 'bold' }}>Delete</Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          onPress={() => {
-            setShowAddForm(true);
-            setEditChild(null);
-            setFormData({
-              firstName: '',
-              lastName: '',
-              email: '',
-              password: '',
-              grade: '',
-              school: '',
-              busId: '',
-            });
-          }}
-          style={{
-            backgroundColor: Colors.primary,
-            borderRadius: 8,
-            paddingHorizontal: 14,
-            paddingVertical: 8,
-          }}
-        >
-          <Text style={{ color: '#fff', fontWeight: 'bold' }}>Add</Text>
         </TouchableOpacity>
       </View>
     </Animated.View>
@@ -357,6 +334,32 @@ export default function ChildrenScreen() {
 
       {/* Children List */}
       <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 24, marginTop: 16, marginBottom: 0 }}>
+          <Text style={{ fontSize: 24, fontWeight: 'bold', color: Colors.primary }}>Children</Text>
+          <TouchableOpacity
+            onPress={() => {
+              setShowAddForm(true);
+              setEditChild(null);
+              setFormData({
+                firstName: '',
+                lastName: '',
+                email: '',
+                password: '',
+                grade: '',
+                school: '',
+                busId: '',
+              });
+            }}
+            style={{
+              backgroundColor: Colors.primary,
+              borderRadius: 8,
+              paddingHorizontal: 14,
+              paddingVertical: 8,
+            }}
+          >
+            <Text style={{ color: '#fff', fontWeight: 'bold' }}>Add</Text>
+          </TouchableOpacity>
+        </View>
         <View style={styles.childrenList}>
           {children.map((child, index) => (
             <ChildCard key={child._id || index} child={child} index={index} />

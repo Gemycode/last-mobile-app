@@ -105,6 +105,13 @@ export default function TabsLayout() {
           }}
         />
       ))}
+      {/* Hide children and buses tabs for roles that shouldn't see them */}
+      {!tabs.some(tab => tab.name === 'children') && (
+        <Tabs.Screen name="children" options={{ href: null }} />
+      )}
+      {!tabs.some(tab => tab.name === 'buses') && (
+        <Tabs.Screen name="buses" options={{ href: null }} />
+      )}
     </Tabs>
   );
 }
