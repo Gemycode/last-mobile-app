@@ -19,4 +19,5 @@ export const Colors = {
   success: '#10B981',
   warning: '#F59E0B',
   error: '#EF4444',
+  info: '#17A2B8',
 };
