@@ -95,23 +95,47 @@ export default function ChildrenScreen() {
             ) : null}
           </View>
         </View>
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-          <TouchableOpacity onPress={() => openEditModal(child)}>
-            <Text style={{ color: Colors.primary, fontWeight: 'bold', marginRight: 8 }}>Edit</Text>
-          </TouchableOpacity>
-          <TouchableOpacity onPress={() => {
-            Alert.alert(
-              'Delete Child',
-              'Are you sure you want to delete this child?',
-              [
-                { text: 'Cancel', style: 'cancel' },
-                { text: 'Delete', style: 'destructive', onPress: () => handleDeleteChild(child._id) }
-              ]
-            );
-          }}>
-            <Text style={{ color: 'red', fontWeight: 'bold' }}>Delete</Text>
-          </TouchableOpacity>
-        </View>
+      </View>
+      {/* أزرار Edit, Delete, Add في الأسفل */}
+      <View style={{ flexDirection: 'row', justifyContent: 'flex-end', alignItems: 'center', marginTop: 12 }}>
+        <TouchableOpacity onPress={() => openEditModal(child)} style={{ marginRight: 12 }}>
+          <Text style={{ color: Colors.primary, fontWeight: 'bold' }}>Edit</Text>
+        </TouchableOpacity>
+        <TouchableOpacity onPress={() => {
+          Alert.alert(
+            'Delete Child',
+            'Are you sure you want to delete this child?',
+            [
+              { text: 'Cancel', style: 'cancel' },
+              { text: 'Delete', style: 'destructive', onPress: () => handleDeleteChild(child._id) }
+            ]
+          );
+        }} style={{ marginRight: 12 }}>
+          <Text style={{ color: 'red', fontWeight: 'bold' }}>Delete</Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          onPress={() => {
+            setShowAddForm(true);
+            setEditChild(null);
+            setFormData({
+              firstName: '',
+              lastName: '',
+              email: '',
+              password: '',
+              grade: '',
+              school: '',
+              busId: '',
+            });
+          }}
+          style={{
+            backgroundColor: Colors.primary,
+            borderRadius: 8,
+            paddingHorizontal: 14,
+            paddingVertical: 8,
+          }}
+        >
+          <Text style={{ color: '#fff', fontWeight: 'bold' }}>Add</Text>
+        </TouchableOpacity>
       </View>
     </Animated.View>
   );
@@ -185,7 +209,7 @@ export default function ChildrenScreen() {
       password: '', // لا تملأ كلمة المرور
       grade: child.grade || '',
       school: child.school || '',
-      busId: child.busId || '',
+      busId: child.busId || ''
     });
     setEditChild(child);
     setShowAddForm(true);
