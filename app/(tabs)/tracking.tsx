@@ -156,7 +156,7 @@ export default function TrackingScreen() {
   };
 
   // استخراج بيانات الباص المحدد
-  const selectedBusData = buses.find(bus => bus.id === selectedBus);
+  const selectedBusData = buses.find(bus => bus.id === selectedBus || bus.busId === selectedBus);
 
   // دالة لتغيير حجم الأيقونة حسب الزوم
   const handleRegionChangeComplete = (region: any) => {
@@ -171,7 +171,7 @@ export default function TrackingScreen() {
       <View style={[styles.container, isFullScreen && { padding: 0 }]}>
         <StatusBar style="light" />
         {/* الخريطة في منتصف الصفحة */}
-        <View style={[styles.mapContainer, { height: height * 0.5, margin: 0, borderRadius: 0 }]}>
+        <View style={[styles.mapContainer, { height: height * 0.35, margin: 0, borderRadius: 0 }]}>
           {/* زر تكبير الخريطة فوق الخريطة */}
           <TouchableOpacity
             style={{
@@ -201,91 +201,165 @@ export default function TrackingScreen() {
             }}
             onRegionChangeComplete={handleRegionChangeComplete}
           >
-            {isLiveTracking && routes.map(route => (
-              route.stops && route.stops.length > 1 && (
-                <Polyline
-                  key={route._id}
-                  coordinates={route.stops.map((stop: any) => ({
-                    latitude: stop.lat,
-                    longitude: stop.long,
-                  }))}
-                  strokeColor={Colors.primary}
-                  strokeWidth={4}
-                />
-              )
-            ))}
-            {isLiveTracking && buses.map(bus => (
-              bus.currentLocation && (
-                <Marker
-                  key={bus.busId || bus.id}
-                  coordinate={{
-                    latitude: bus.currentLocation.lat,
-                    longitude: bus.currentLocation.lng,
-                  }}
-                  title={`Bus ${bus.name || bus.busNumber}`}
-                  description={bus.status}
-                />
-              )
-            ))}
+            {isLiveTracking && (
+              selectedBusData && selectedBusData.routeId
+                ? routes.filter(route => route._id === selectedBusData.routeId || route.id === selectedBusData.routeId).map(route => (
+                    route.stops && route.stops.length > 1 && (
+                      <Polyline
+                        key={route._id}
+                        coordinates={route.stops.map((stop: any) => ({
+                          latitude: stop.lat,
+                          longitude: stop.long,
+                        }))}
+                        strokeColor={Colors.primary}
+                        strokeWidth={6}
+                        zIndex={2}
+                      />
+                    )
+                  ))
+                : routes.map(route => (
+                    route.stops && route.stops.length > 1 && (
+                      <Polyline
+                        key={route._id}
+                        coordinates={route.stops.map((stop: any) => ({
+                          latitude: stop.lat,
+                          longitude: stop.long,
+                        }))}
+                        strokeColor={Colors.primary}
+                        strokeWidth={4}
+                        zIndex={1}
+                      />
+                    )
+                  ))
+            )}
+            {isLiveTracking && (
+              selectedBusData && selectedBusData.routeId
+                ? buses.filter(bus => (bus.id === selectedBus || bus.busId === selectedBus)).map(bus => (
+                    bus.currentLocation && (
+                      <Marker
+                        key={bus.busId || bus.id}
+                        coordinate={{
+                          latitude: bus.currentLocation.lat,
+                          longitude: bus.currentLocation.lng,
+                        }}
+                        title={`Bus ${bus.name || bus.busNumber}`}
+                        description={bus.status}
+                      >
+                        <View style={{ alignItems: 'center', justifyContent: 'center', shadowColor: '#000', shadowOpacity: 0.18, shadowRadius: 3, elevation: 4 }}>
+                          <MaterialCommunityIcons name="bus-marker" size={28} color="#2563eb" />
+                        </View>
+                      </Marker>
+                    )
+                  ))
+                : buses.map(bus => (
+                    bus.currentLocation && (
+                      <Marker
+                        key={bus.busId || bus.id}
+                        coordinate={{
+                          latitude: bus.currentLocation.lat,
+                          longitude: bus.currentLocation.lng,
+                        }}
+                        title={`Bus ${bus.name || bus.busNumber}`}
+                        description={bus.status}
+                      >
+                        <View style={{ alignItems: 'center', justifyContent: 'center', shadowColor: '#000', shadowOpacity: 0.18, shadowRadius: 3, elevation: 4 }}>
+                          <MaterialCommunityIcons name="bus-marker" size={24} color={Colors.primary} />
+                        </View>
+                      </Marker>
+                    )
+                  ))
+            )}
           </MapView>
+          {/* شاشة فارغة ديناميكية */}
+          {(!isLiveTracking || buses.length === 0) && (
+            <View style={styles.emptyStateContainer}>
+              <MaterialCommunityIcons name="bus-clock" size={80} color="#CBD5E1" style={{ marginBottom: 16 }} />
+              <Text style={styles.emptyStateTitle}>
+                {!isLiveTracking ? 'ابدأ التتبع المباشر للباصات' : 'لا يوجد باصات نشطة حالياً'}
+              </Text>
+              <Text style={styles.emptyStateSubtitle}>
+                {!isLiveTracking
+                  ? 'اضغط على زر "بدء التتبع المباشر" لمشاهدة حركة الباصات على الخريطة.'
+                  : 'انتظر حتى يتم تفعيل باصات جديدة أو قم بتحديث الصفحة.'}
+              </Text>
+              {!isLiveTracking && (
+                <TouchableOpacity
+                  style={styles.emptyStateButton}
+                  onPress={async () => {
+                    await playNotificationSound();
+                    setIsLiveTracking(true);
+                  }}
+                >
+                  <Navigation size={18} color={Colors.white} />
+                  <Text style={styles.emptyStateButtonText}>بدء التتبع المباشر</Text>
+                </TouchableOpacity>
+              )}
+            </View>
+          )}
           {/* زر Start/Stop Live Tracking فوق الخريطة (واحد فقط) */}
-          <TouchableOpacity
-            style={{
-              position: 'absolute',
-              bottom: 24,
-              left: '50%',
-              transform: [{ translateX: -70 }],
-              backgroundColor: isLiveTracking ? '#10B981' : Colors.primary,
-              borderRadius: 20,
-              paddingVertical: 8,
-              paddingHorizontal: 24,
-              flexDirection: 'row',
-              alignItems: 'center',
-              zIndex: 10,
-            }}
-            onPress={async () => {
-              if (!isLiveTracking) {
-                await playNotificationSound();
-              }
-              setIsLiveTracking(!isLiveTracking);
-            }}
-          >
-            <Navigation size={16} color={Colors.white} />
-            <Text style={{ color: '#fff', fontWeight: 'bold', fontSize: 16, marginLeft: 8 }}>
-              {isLiveTracking ? 'Stop live' : 'Start live'}
-            </Text>
-          </TouchableOpacity>
+          {buses.length > 0 && (
+            <TouchableOpacity
+              style={{
+                position: 'absolute',
+                bottom: 24,
+                left: '50%',
+                transform: [{ translateX: -70 }],
+                backgroundColor: isLiveTracking ? '#10B981' : Colors.primary,
+                borderRadius: 20,
+                paddingVertical: 8,
+                paddingHorizontal: 24,
+                flexDirection: 'row',
+                alignItems: 'center',
+                zIndex: 10,
+              }}
+              onPress={async () => {
+                if (!isLiveTracking) {
+                  await playNotificationSound();
+                }
+                setIsLiveTracking(!isLiveTracking);
+              }}
+            >
+              <Navigation size={16} color={Colors.white} />
+              <Text style={{ color: '#fff', fontWeight: 'bold', fontSize: 16, marginLeft: 8 }}>
+                {isLiveTracking ? 'Stop live' : 'Start live'}
+              </Text>
+            </TouchableOpacity>
+          )}
         </View>
         {/* باقي الصفحة تظهر فقط إذا لم يكن fullscreen */}
         {!isFullScreen && (
           <ScrollView style={[styles.content]} showsVerticalScrollIndicator={false}>
             {/* باصات للاختيار */}
-            {isLiveTracking && (
+            {isLiveTracking && buses.length > 0 && (
               <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.busSelector}>
-                {buses.map((bus, index) => (
-                  <TouchableOpacity
-                    key={bus.id || bus.busId}
-                    style={[
-                      styles.busCard,
-                      selectedBus === (bus.id || bus.busId) && styles.selectedBusCard,
-                      { backgroundColor: selectedBus === (bus.id || bus.busId) ? Colors.primary : '#fff' }
-                    ]}
-                    onPress={() => setSelectedBus(bus.id || bus.busId)}
-                  >
-                    <View style={styles.busCardContent}>
-                      <Text style={[
-                        styles.busName,
-                        { color: selectedBus === (bus.id || bus.busId) ? '#fff' : Colors.primary }
-                      ]}>
-                        {bus.name || bus.busNumber}
-                      </Text>
-                      <Text style={styles.busRoute}>{bus.route || ''}</Text>
-                      <View style={styles.busStatusBox}>
-                        <Text style={styles.busStatusText}>{bus.status}</Text>
+                {buses.map((bus, index) => {
+                  const busKey = bus.id || bus.busId;
+                  const isSelected = selectedBus === busKey;
+                  return (
+                    <TouchableOpacity
+                      key={busKey}
+                      style={[
+                        styles.busCard,
+                        isSelected && styles.selectedBusCard,
+                        { backgroundColor: isSelected ? Colors.primary : '#fff' }
+                      ]}
+                      onPress={() => setSelectedBus(isSelected ? null : busKey)}
+                    >
+                      <View style={styles.busCardContent}>
+                        <Text style={[
+                          styles.busName,
+                          { color: isSelected ? '#fff' : Colors.primary }
+                        ]}>
+                          {bus.name || bus.busNumber}
+                        </Text>
+                        <Text style={styles.busRoute}>{bus.route || ''}</Text>
+                        <View style={styles.busStatusBox}>
+                          <Text style={styles.busStatusText}>{bus.status}</Text>
+                        </View>
                       </View>
-                    </View>
-                  </TouchableOpacity>
-                ))}
+                    </TouchableOpacity>
+                  );
+                })}
               </ScrollView>
             )}
             {/* تفاصيل الباص المحدد */}
@@ -304,6 +378,31 @@ export default function TrackingScreen() {
                 </View>
               </View>
             )}
+
+            {/* قائمة الباصات مع الإحداثيات */}
+            {isLiveTracking && buses.length > 0 ? (
+              <View style={styles.busListContainer}>
+                <Text style={styles.busListTitle}>تفاصيل جميع الباصات النشطة:</Text>
+                {buses.map((bus, idx) => (
+                  <View key={bus.id || bus.busId} style={styles.busListItem}>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 4 }}>
+                      <MaterialCommunityIcons name="bus" size={22} color={Colors.primary} style={{ marginRight: 8 }} />
+                      <Text style={styles.busListName}>{bus.name || bus.busNumber}</Text>
+                      <Text style={styles.busListStatus}> ({bus.status})</Text>
+                    </View>
+                    <Text style={styles.busListRoute}>خط السير: {bus.route || '-'}</Text>
+                    <Text style={styles.busListCoords}>
+                      الإحداثيات: 
+                      <Text style={styles.busListCoordValue}> lat: {bus.currentLocation?.lat?.toFixed(5) ?? '--'} </Text>
+                      <Text style={styles.busListCoordValue}>long: {bus.currentLocation?.lng?.toFixed(5) ?? '--'}</Text>
+                    </Text>
+                  </View>
+                ))}
+              </View>
+            ) : isLiveTracking && (
+              <Text style={styles.busListEmpty}>لا يوجد باصات نشطة حالياً.</Text>
+            )}
+
           </ScrollView>
         )}
       </View>
@@ -490,6 +589,108 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     fontSize: 16,
     marginLeft: 8,
+  },
+  emptyStateContainer: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(255,255,255,0.85)',
+    zIndex: 20,
+    paddingHorizontal: 24,
+  },
+  emptyStateTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: '#64748b',
+    marginBottom: 8,
+    textAlign: 'center',
+  },
+  emptyStateSubtitle: {
+    fontSize: 14,
+    color: '#94a3b8',
+    marginBottom: 20,
+    textAlign: 'center',
+  },
+  emptyStateButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: Colors.primary,
+    borderRadius: 20,
+    paddingVertical: 10,
+    paddingHorizontal: 28,
+    marginTop: 8,
+    shadowColor: '#3B82F6',
+    shadowOpacity: 0.15,
+    shadowRadius: 4,
+    elevation: 4,
+  },
+  emptyStateButtonText: {
+    color: '#fff',
+    fontWeight: 'bold',
+    fontSize: 16,
+    marginLeft: 8,
+  },
+  busListContainer: {
+    marginHorizontal: 20,
+    marginTop: 10,
+    marginBottom: 30,
+    backgroundColor: '#fff',
+    borderRadius: 16,
+    padding: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 8,
+    elevation: 2,
+  },
+  busListTitle: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: Colors.primary,
+    marginBottom: 10,
+    textAlign: 'right',
+  },
+  busListItem: {
+    borderBottomWidth: 1,
+    borderBottomColor: '#f1f5f9',
+    paddingVertical: 10,
+  },
+  busListName: {
+    fontSize: 15,
+    fontWeight: 'bold',
+    color: '#1e293b',
+  },
+  busListStatus: {
+    fontSize: 13,
+    color: '#64748b',
+    marginLeft: 6,
+  },
+  busListRoute: {
+    fontSize: 13,
+    color: '#475569',
+    marginBottom: 2,
+    marginRight: 30,
+    textAlign: 'right',
+  },
+  busListCoords: {
+    fontSize: 13,
+    color: '#334155',
+    marginRight: 30,
+    textAlign: 'right',
+  },
+  busListCoordValue: {
+    fontWeight: 'bold',
+    color: Colors.primary,
+  },
+  busListEmpty: {
+    textAlign: 'center',
+    color: '#64748b',
+    fontSize: 15,
+    marginVertical: 20,
   },
 });
 

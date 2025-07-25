@@ -7,7 +7,7 @@ import Card from '../../components/Card';
 import { Colors } from '../../constants/Colors';
 import { useAuthStore } from '../../store/authStore';
 import { useAppStore } from '../../store/appStore';
-import { fetchActiveBuses, fetchRoutes, fetchTrips, fetchChildren } from '../../services/busService';
+import { fetchActiveBuses, fetchRoutes, fetchTrips, fetchChildren, bookSeat } from '../../services/busService';
 import { useRouter } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
 import Animated, { useSharedValue, withSpring, useAnimatedStyle } from 'react-native-reanimated';
@@ -141,6 +141,73 @@ export default function HomeScreen() {
           ))
         )}
       </Card>
+
+      {/* الرحلات المتاحة للحجز لكل طفل */}
+      <View style={{ marginTop: 18, marginBottom: 18 }}>
+        <Text style={{ fontSize: 20, fontWeight: 'bold', color: Colors.primary, marginBottom: 10, marginLeft: 4 }}>
+          <Activity size={20} color={Colors.primary} />  احجز رحلة لطفلك
+        </Text>
+        {children.length === 0 ? (
+          <Text style={{ color: '#64748b', fontSize: 15, marginBottom: 10 }}>لا يوجد أطفال مسجلين.</Text>
+        ) : trips.length === 0 ? (
+          <Text style={{ color: '#64748b', fontSize: 15, marginBottom: 10 }}>لا توجد رحلات متاحة للحجز حالياً.</Text>
+        ) : (
+          trips.map((trip, idx) => (
+            <View key={trip._id || idx} style={{
+              backgroundColor: '#fff',
+              borderRadius: 16,
+              padding: 16,
+              marginBottom: 14,
+              shadowColor: '#000',
+              shadowOffset: { width: 0, height: 2 },
+              shadowOpacity: 0.08,
+              shadowRadius: 8,
+              elevation: 2,
+              borderWidth: 1,
+              borderColor: '#f1f5f9',
+            }}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 6 }}>
+                <Activity size={18} color={Colors.primary} style={{ marginRight: 6 }} />
+                <Text style={{ fontWeight: 'bold', color: Colors.primary, fontSize: 16 }}>{String(trip.routeName || trip.route || '--')}</Text>
+              </View>
+              <Text style={{ color: '#64748b', fontSize: 13, marginBottom: 2 }}>الباص: {String(trip.busNumber || trip.busId || '--')}</Text>
+              <Text style={{ color: '#64748b', fontSize: 13, marginBottom: 8 }}>الوقت: {String(trip.startTime || '--')}</Text>
+              <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6 }}>
+                {children.map(child => (
+                  <TouchableOpacity
+                    key={String(child._id)}
+                    style={{
+                      backgroundColor: '#10B981',
+                      borderRadius: 16,
+                      paddingVertical: 6,
+                      paddingHorizontal: 14,
+                      marginRight: 8,
+                      marginBottom: 6,
+                      flexDirection: 'row',
+                      alignItems: 'center',
+                      shadowColor: '#10B981',
+                      shadowOpacity: 0.12,
+                      shadowRadius: 2,
+                      elevation: 2,
+                    }}
+                    onPress={async () => {
+                      try {
+                        await bookSeat({ childId: child._id, tripId: trip._id });
+                        alert(`تم حجز الرحلة بنجاح للطفل ${String(child.firstName)}`);
+                      } catch (e) {
+                        alert('حدث خطأ أثناء الحجز');
+                      }
+                    }}
+                  >
+                    <Users size={14} color="#fff" style={{ marginLeft: 4 }} />
+                    <Text style={{ color: '#fff', fontWeight: 'bold', fontSize: 13 }}>احجز لـ {String(child.firstName)}</Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            </View>
+          ))
+        )}
+      </View>
     </ScrollView>
   );
 
@@ -341,6 +408,75 @@ export default function HomeScreen() {
               ))}
             </View>
           </Animated.View>
+        )}
+
+        {/* احجز رحلة لطفلك - تظهر فقط للparent */}
+        {user?.role === 'parent' && (
+          <View style={{ marginTop: 18, marginBottom: 18 }}>
+            <Text style={{ fontSize: 20, fontWeight: 'bold', color: Colors.primary, marginBottom: 10, marginLeft: 4 }}>
+              <Activity size={20} color={Colors.primary} />  احجز رحلة لطفلك
+            </Text>
+            {children.length === 0 ? (
+              <Text style={{ color: '#64748b', fontSize: 15, marginBottom: 10 }}>لا يوجد أطفال مسجلين.</Text>
+            ) : trips.length === 0 ? (
+              <Text style={{ color: '#64748b', fontSize: 15, marginBottom: 10 }}>لا توجد رحلات متاحة للحجز حالياً.</Text>
+            ) : (
+              trips.map((trip, idx) => (
+                <View key={trip._id || idx} style={{
+                  backgroundColor: '#fff',
+                  borderRadius: 16,
+                  padding: 16,
+                  marginBottom: 14,
+                  shadowColor: '#000',
+                  shadowOffset: { width: 0, height: 2 },
+                  shadowOpacity: 0.08,
+                  shadowRadius: 8,
+                  elevation: 2,
+                  borderWidth: 1,
+                  borderColor: '#f1f5f9',
+                }}>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 6 }}>
+                    <Activity size={18} color={Colors.primary} style={{ marginRight: 6 }} />
+                    <Text style={{ fontWeight: 'bold', color: Colors.primary, fontSize: 16 }}>{String(trip.routeName || trip.route || '--')}</Text>
+                  </View>
+                  <Text style={{ color: '#64748b', fontSize: 13, marginBottom: 2 }}>الباص: {String(trip.busNumber || trip.busId || '--')}</Text>
+                  <Text style={{ color: '#64748b', fontSize: 13, marginBottom: 8 }}>الوقت: {String(trip.startTime || '--')}</Text>
+                  <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6 }}>
+                    {children.map(child => (
+                      <TouchableOpacity
+                        key={String(child._id)}
+                        style={{
+                          backgroundColor: '#10B981',
+                          borderRadius: 16,
+                          paddingVertical: 6,
+                          paddingHorizontal: 14,
+                          marginRight: 8,
+                          marginBottom: 6,
+                          flexDirection: 'row',
+                          alignItems: 'center',
+                          shadowColor: '#10B981',
+                          shadowOpacity: 0.12,
+                          shadowRadius: 2,
+                          elevation: 2,
+                        }}
+                        onPress={async () => {
+                          try {
+                            await bookSeat({ childId: child._id, tripId: trip._id });
+                            alert(`تم حجز الرحلة بنجاح للطفل ${String(child.firstName)}`);
+                          } catch (e) {
+                            alert('حدث خطأ أثناء الحجز');
+                          }
+                        }}
+                      >
+                        <Users size={14} color="#fff" style={{ marginLeft: 4 }} />
+                        <Text style={{ color: '#fff', fontWeight: 'bold', fontSize: 13 }}>احجز لـ {String(child.firstName)}</Text>
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+                </View>
+              ))
+            )}
+          </View>
         )}
 
         {/* Quick Actions */}
