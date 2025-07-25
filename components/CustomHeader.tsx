@@ -2,7 +2,7 @@ import React, { useState, useRef } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, Modal, Image, Animated, Easing, Dimensions } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { User, Bell, Menu, QrCode, LogOut } from 'lucide-react-native'; // Ensure 'lucide-react-native' is installed
+import { User, Bell, Menu, QrCode, LogOut, ChevronRight } from 'lucide-react-native'; // Add ChevronRight
 import { Colors } from '../constants/Colors'; // Make sure this path is correct
 import { Typography } from '../constants/Typography'; // Make sure this path is correct, if you create this file
 import { useAuthStore } from '../store/authStore';
@@ -135,18 +135,16 @@ export default function CustomHeader({ title, subtitle, showBackButton, onMenuPr
               styles.dropdownMenu,
               {
                 position: 'absolute',
-                // Adjust position to align with the right edge of the button
-                top: dropdownPosition.y + dropdownPosition.height + 10, // Small gap below button
-                right: width - (dropdownPosition.x + dropdownPosition.width), // Aligns right edge of menu with right edge of button
+                top: dropdownPosition.y + dropdownPosition.height + 0, // التصاق تام بأسفل الأيقونة
+                right: width - (dropdownPosition.x + dropdownPosition.width), // محاذاة مع الأيقونة
+                marginTop: 0,
+                marginHorizontal: 0,
+                width: 260, // عرض مناسب فقط
+                alignSelf: 'flex-end',
               },
               { opacity: fadeAnim, transform: [{ scale: scaleAnim }, { translateY: translateYAnim }] }
             ]}
           >
-            {/* Arrow above the menu */}
-            <View style={[styles.arrowContainer, { right: (dropdownPosition.width / 2) - 10 }]}> {/* Center arrow */}
-              <View style={styles.arrow} />
-            </View>
-
             {/* Avatar section */}
             <View style={styles.avatarSection}>
               <View style={styles.avatarCircle}>
@@ -155,44 +153,55 @@ export default function CustomHeader({ title, subtitle, showBackButton, onMenuPr
                 ) : (
                   <User size={36} color={Colors.primary} />
                 )}
+                {user?.role === 'admin' && (
+                  <View style={styles.adminBadge}>
+                    <Text style={styles.adminBadgeText}>Admin</Text>
+                  </View>
+                )}
               </View>
               <Text style={styles.avatarName}>{user?.name || 'Guest User'}</Text>
               <Text style={styles.avatarRole}>{user?.role || 'Member'}</Text>
             </View>
             <View style={styles.divider} />
-
             {/* Menu items */}
             {menuItems.map((item, idx) => (
               <React.Fragment key={item.label}>
-                <TouchableOpacity
-                  style={[
-                    styles.dropdownItem,
-                    pressedIndex === idx && styles.dropdownItemActive
-                  ]}
-                  activeOpacity={0.6} // Slightly less active opacity
-                  onPress={item.onPress}
-                  onPressIn={() => setPressedIndex(idx)}
-                  onPressOut={() => setPressedIndex(null)}
-                  accessibilityRole="menuitem" // Semantic role for accessibility
-                  accessibilityLabel={item.label}
+                <Animated.View
+                  style={{
+                    opacity: fadeAnim,
+                    transform: [{ translateY: translateYAnim }],
+                  }}
                 >
-                  <View style={styles.itemRow}>
-                    {item.icon}
-                    <Text style={styles.dropdownText}>{item.label}</Text>
-                  </View>
-                </TouchableOpacity>
+                  <TouchableOpacity
+                    style={[
+                      styles.dropdownItem,
+                      pressedIndex === idx && styles.dropdownItemActive,
+                      { justifyContent: 'center' },
+                    ]}
+                    activeOpacity={0.7}
+                    onPress={item.onPress}
+                    onPressIn={() => setPressedIndex(idx)}
+                    onPressOut={() => setPressedIndex(null)}
+                    accessibilityRole="menuitem"
+                    accessibilityLabel={item.label}
+                  >
+                    <View style={[styles.itemRow, { justifyContent: 'center' }]}> {/* وسط العناصر */}
+                      {item.icon}
+                      <Text style={styles.dropdownText}>{item.label}</Text>
+                    </View>
+                  </TouchableOpacity>
+                </Animated.View>
                 {idx < menuItems.length - 1 && <View style={styles.dividerThin} />}
               </React.Fragment>
             ))}
-
             {/* Logout Button */}
             <TouchableOpacity
-              style={styles.logoutButton}
+              style={[styles.logoutButton, { justifyContent: 'center' }]}
               onPress={async () => { closeDropdown(); await logout(); router.replace('/(auth)/login'); }}
               accessibilityRole="menuitem"
               accessibilityLabel="Logout"
             >
-              <View style={styles.itemRow}>
+              <View style={[styles.itemRow, { justifyContent: 'center' }]}> {/* وسط العناصر */}
                 <LogOut size={20} color={Colors.error} style={styles.itemIcon} />
                 <Text style={styles.logoutText}>Logout</Text>
               </View>
@@ -261,18 +270,20 @@ const styles = StyleSheet.create({
   },
   dropdownMenu: {
     backgroundColor: Colors.white,
-    borderRadius: 12, // Softer border radius
-    margin: 16,
-    minWidth: 200, // Adjusted minWidth for better content fit
-    maxWidth: 260, // Max width to prevent overly wide menus
-    elevation: 16, // Deeper shadow
+    borderRadius: 20,
+    minWidth: 220,
+    maxWidth: 320,
+    elevation: 2,
     shadowColor: Colors.black,
-    shadowOffset: { width: 0, height: 10 },
-    shadowOpacity: 0.18, // Lighter shadow opacity
-    shadowRadius: 20, // Softer shadow blur
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 8,
     alignItems: 'stretch',
-    borderWidth: StyleSheet.hairlineWidth, // Very thin border for subtle definition
+    borderWidth: StyleSheet.hairlineWidth,
     borderColor: Colors.gray[200],
+    paddingBottom: 8,
+    paddingTop: 0,
+    marginHorizontal: 0,
   },
   arrowContainer: {
     position: 'absolute',
@@ -344,38 +355,73 @@ const styles = StyleSheet.create({
   dropdownItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 14, // Consistent padding
-    paddingHorizontal: 24, // Consistent padding
+    paddingVertical: 16, // More touchable
+    paddingHorizontal: 28, // More padding
     backgroundColor: Colors.white,
+    borderRadius: 8,
+    marginHorizontal: 8,
+    marginVertical: 2,
+    minHeight: 48,
   },
   dropdownItemActive: {
-    backgroundColor: Colors.gray[100], // Very subtle background on press
+    backgroundColor: Colors.gray[100],
+    shadowColor: Colors.primary,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 4,
   },
   itemRow: {
     flexDirection: 'row',
     alignItems: 'center',
+    width: '100%',
   },
   itemIcon: {
-    marginRight: 16, // Increased spacing between icon and text
+    marginRight: 16,
   },
   dropdownText: {
-    ...Typography.buttonText, // Using a consistent text style
+    ...Typography.buttonText,
     color: Colors.primary,
+    fontWeight: '500',
+    fontSize: 16,
   },
   logoutButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 14,
-    paddingHorizontal: 24,
-    backgroundColor: 'transparent',
-    borderTopWidth: StyleSheet.hairlineWidth, // Use hairlineWidth for subtlety
+    paddingVertical: 16,
+    paddingHorizontal: 28,
+    backgroundColor: Colors.error + '10', // Subtle error background
+    borderTopWidth: StyleSheet.hairlineWidth,
     borderTopColor: Colors.gray[200],
-    marginTop: 8, // Space above logout button
-    borderBottomLeftRadius: 12, // Match dropdown menu radius
-    borderBottomRightRadius: 12,
+    marginTop: 12,
+    borderBottomLeftRadius: 16,
+    borderBottomRightRadius: 16,
+    minHeight: 48,
+    marginHorizontal: 8,
+    marginBottom: 4,
   },
   logoutText: {
-    ...Typography.buttonText, // Using a consistent text style
+    ...Typography.buttonText,
     color: Colors.error,
+    fontWeight: '600',
+    fontSize: 16,
+  },
+  adminBadge: {
+    position: 'absolute',
+    bottom: -8,
+    right: -8,
+    backgroundColor: Colors.primary,
+    borderRadius: 8,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    zIndex: 2,
+    shadowColor: Colors.black,
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.15,
+    shadowRadius: 2,
+  },
+  adminBadgeText: {
+    color: '#fff',
+    fontSize: 10,
+    fontWeight: 'bold',
   },
 });
