@@ -3,8 +3,13 @@ import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useFrameworkReady } from '@/hooks/useFrameworkReady';
 import { useAuthStore } from '../store/authStore';
+import { useThemeStore } from '../store/appStore';
+import { View } from 'react-native';
+import CustomHeader from '../components/CustomHeader';
 
 export default function RootLayout() {
+  const { theme, loadTheme } = useThemeStore();
+  useEffect(() => { loadTheme(); }, []);
   useFrameworkReady();
   const { loadUser, isAuthenticated, isLoading } = useAuthStore();
 
@@ -18,7 +23,10 @@ export default function RootLayout() {
 
   return (
     <>
-      <Stack screenOptions={{ headerShown: false }}>
+      <Stack screenOptions={{
+        headerShown: false,
+        contentStyle: { backgroundColor: theme === 'dark' ? '#18181b' : '#fff' }
+      }}>
         {!isAuthenticated ? (
           <>
             <Stack.Screen name="(auth)" />

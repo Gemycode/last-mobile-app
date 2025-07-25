@@ -1,3 +1,4 @@
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { create } from 'zustand';
 import { Child, Bus, Route, Trip, Booking, BusStop } from '../types';
 
@@ -10,6 +11,12 @@ interface AppState {
   addChild: (child: Omit<Child, 'id'>) => void;
   bookSeat: (booking: Omit<Booking, 'id' | 'bookedAt'>) => void;
   updateBusLocation: (busId: string, location: { latitude: number; longitude: number }) => void;
+}
+
+interface ThemeState {
+  theme: 'light' | 'dark';
+  setTheme: (theme: 'light' | 'dark') => void;
+  loadTheme: () => Promise<void>;
 }
 
 // Mock data
@@ -62,5 +69,17 @@ export const useAppStore = create<AppState>((set, get) => ({
         bus.id === busId ? { ...bus, currentLocation: location } : bus
       )
     }));
+  },
+}));
+
+export const useThemeStore = create<ThemeState>((set) => ({
+  theme: 'light',
+  setTheme: (theme) => {
+    set({ theme });
+    AsyncStorage.setItem('theme', theme);
+  },
+  loadTheme: async () => {
+    const saved = await AsyncStorage.getItem('theme');
+    if (saved === 'light' || saved === 'dark') set({ theme: saved });
   },
 }));
