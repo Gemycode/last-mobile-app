@@ -105,6 +105,9 @@ export default function TabsLayout() {
           }}
         />
       ))}
+      {/* Force hide children and buses tabs for roles that shouldn't see them */}
+      <Tabs.Screen name="children" options={{ href: null }} />
+      <Tabs.Screen name="buses" options={{ href: null }} />
     </Tabs>
   );
 }

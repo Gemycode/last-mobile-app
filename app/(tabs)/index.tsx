@@ -150,24 +150,45 @@ export default function HomeScreen() {
         <Text style={styles.welcomeText}>Good morning, {user?.name}!</Text>
         <Text style={styles.welcomeSubtext}>Your assigned trips for today</Text>
       </View>
-      {/* قائمة الرحلات الفعلية */}
+
+      {/* إحصائيات سريعة */}
+      <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginVertical: 16 }}>
+        <Card style={styles.statCard}>
+          <Text style={styles.statNumber}>{trips.length}</Text>
+          <Text style={styles.statLabel}>Trips</Text>
+        </Card>
+        <Card style={styles.statCard}>
+          <Text style={styles.statNumber}>{buses.length}</Text>
+          <Text style={styles.statLabel}>Active Buses</Text>
+        </Card>
+      </View>
+
+      {/* الرحلة القادمة */}
       <Card>
         <View style={styles.cardHeader}>
-          <Text style={styles.cardTitle}>Assigned Trips</Text>
+          <Text style={styles.cardTitle}>Next Trip</Text>
           <Clock size={20} color={Colors.secondary} />
         </View>
         {trips.length === 0 ? (
           <Text style={styles.trackingSubtext}>No trips assigned.</Text>
         ) : (
-          trips.map((trip, idx) => (
-            <View key={trip._id || idx} style={styles.scheduleItem}>
-              <Text style={styles.scheduleTime}>{trip.startTime || '--'}</Text>
-              <Text style={styles.scheduleText}>Bus {trip.busNumber || trip.busId || '--'} - {trip.routeName || trip.route || '--'}</Text>
+          <View>
+            <Text style={styles.tripInfo}>Bus: {trips[0].busNumber || trips[0].busId}</Text>
+            <Text style={styles.tripDetails}>Route: {trips[0].routeName || trips[0].route}</Text>
+            <Text style={styles.tripDetails}>Start: {trips[0].startTime}</Text>
+            <View style={styles.tripActions}>
+              <TouchableOpacity style={styles.actionButton}>
+                <Text style={styles.actionButtonText}>Start Trip</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.actionButton}>
+                <Text style={styles.actionButtonText}>Confirm Arrival</Text>
+              </TouchableOpacity>
             </View>
-          ))
+          </View>
         )}
       </Card>
-      {/* قائمة الباصات النشطة */}
+
+      {/* الباصات النشطة */}
       <Card>
         <View style={styles.cardHeader}>
           <Text style={styles.cardTitle}>Active Buses</Text>
@@ -183,6 +204,16 @@ export default function HomeScreen() {
             </View>
           ))
         )}
+      </Card>
+
+      {/* آخر التنبيهات */}
+      <Card>
+        <View style={styles.cardHeader}>
+          <Text style={styles.cardTitle}>Recent Alerts</Text>
+          <Bell size={20} color={Colors.warning} />
+        </View>
+        {/* يمكنك جلب التنبيهات من API أو state */}
+        <Text style={styles.trackingSubtext}>No new alerts.</Text>
       </Card>
     </ScrollView>
   );
