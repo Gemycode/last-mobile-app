@@ -56,6 +56,7 @@ export default function TabsLayout() {
       case 'student':
         return [
           { name: 'index', title: 'My Bus', icon: Bus },
+          { name: 'booking', title: 'Book', icon: Calendar },
           { name: 'tracking', title: 'Track', icon: MapPin },
           { name: 'chat', title: 'Chat', icon: MessageCircle },
         ];
@@ -111,6 +112,16 @@ export default function TabsLayout() {
       )}
       {!tabs.some(tab => tab.name === 'buses') && (
         <Tabs.Screen name="buses" options={{ href: null }} />
+      )}
+      {!tabs.some(tab => tab.name === 'booking') && (
+        <Tabs.Screen name="booking" options={{ href: null }} />
+      )}
+      {/* إخفاء تبويبات إضافية للطالب */}
+      {user?.role === 'student' && (
+        <>
+          <Tabs.Screen name="children" options={{ href: null }} />
+          <Tabs.Screen name="buses" options={{ href: null }} />
+        </>
       )}
     </Tabs>
   );

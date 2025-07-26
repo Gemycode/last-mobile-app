@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, Modal, Image, Animated, Easing, Dimensions } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -15,7 +15,7 @@ interface CustomHeaderProps {
   onMenuPress?: () => void;
 }
 
-const { width } = Dimensions.get('window'); // Get screen width for better positioning
+const SCREEN_WIDTH = Dimensions.get('window').width;
 
 export default function CustomHeader({ title, subtitle, showBackButton, onMenuPress }: CustomHeaderProps) {
   const user = useAuthStore(state => state.user);
@@ -25,60 +25,23 @@ export default function CustomHeader({ title, subtitle, showBackButton, onMenuPr
   const [dropdownVisible, setDropdownVisible] = useState(false);
   const [pressedIndex, setPressedIndex] = useState<number | null>(null);
 
-  const [fadeAnim] = useState(new Animated.Value(0));
-  const [scaleAnim] = useState(new Animated.Value(0.9)); // Start slightly smaller for a nice pop
-  const [translateYAnim] = useState(new Animated.Value(-10)); // For subtle slide down effect
-
-  const dropdownButtonRef = useRef<View>(null);
-  const [dropdownPosition, setDropdownPosition] = useState({ x: 0, y: 0, width: 0, height: 0 });
+  const [drawerAnim] = useState(new Animated.Value(SCREEN_WIDTH * 0.75));
 
   const openDropdown = () => {
-    dropdownButtonRef.current?.measure((fx, fy, width, height, px, py) => {
-      setDropdownPosition({ x: px, y: py, width, height });
-      setDropdownVisible(true);
-      Animated.parallel([
-        Animated.timing(fadeAnim, {
-          toValue: 1,
-          duration: 250,
-          useNativeDriver: true,
-          easing: Easing.out(Easing.ease),
-        }),
-        Animated.spring(scaleAnim, {
-          toValue: 1,
-          useNativeDriver: true,
-          friction: 6,
-          tension: 80,
-        }),
-        Animated.timing(translateYAnim, {
-          toValue: 0,
-          duration: 250,
-          useNativeDriver: true,
-          easing: Easing.out(Easing.ease),
-        }),
-      ]).start();
-    });
+    setDropdownVisible(true);
+    Animated.timing(drawerAnim, {
+      toValue: 0,
+      duration: 300,
+      useNativeDriver: true,
+    }).start();
   };
 
   const closeDropdown = () => {
-    Animated.parallel([
-      Animated.timing(fadeAnim, {
-        toValue: 0,
-        duration: 200, // Slightly longer duration for smoother fade out
-        useNativeDriver: true,
-        easing: Easing.in(Easing.ease),
-      }),
-      Animated.timing(scaleAnim, {
-        toValue: 0.9, // Return to initial scale
-        duration: 200,
-        useNativeDriver: true,
-      }),
-      Animated.timing(translateYAnim, {
-        toValue: -10, // Return to initial translateY
-        duration: 200,
-        useNativeDriver: true,
-        easing: Easing.in(Easing.ease),
-      }),
-    ]).start(() => setDropdownVisible(false));
+    Animated.timing(drawerAnim, {
+      toValue: SCREEN_WIDTH * 0.75,
+      duration: 250,
+      useNativeDriver: true,
+    }).start(() => setDropdownVisible(false));
   };
 
   const menuItems = [
@@ -111,9 +74,7 @@ export default function CustomHeader({ title, subtitle, showBackButton, onMenuPr
                 style={styles.iconButton}
                 accessibilityLabel="Open user menu"
               >
-                <View ref={dropdownButtonRef}>
-                  <User size={28} color={Colors.white} />
-                </View>
+                <User size={28} color={Colors.white} />
               </TouchableOpacity>
             </View>
             {subtitle && (
@@ -129,21 +90,19 @@ export default function CustomHeader({ title, subtitle, showBackButton, onMenuPr
         animationType="none"
         onRequestClose={closeDropdown}
       >
-        <TouchableOpacity style={styles.dropdownOverlay} activeOpacity={1} onPress={closeDropdown}>
+        <TouchableOpacity
+          style={styles.drawerOverlay}
+          activeOpacity={1}
+          onPress={closeDropdown}
+        >
           <Animated.View
-            style={[
-              styles.dropdownMenu,
-              {
-                position: 'absolute',
-                top: dropdownPosition.y + dropdownPosition.height + 0, // التصاق تام بأسفل الأيقونة
-                right: width - (dropdownPosition.x + dropdownPosition.width), // محاذاة مع الأيقونة
-                marginTop: 0,
-                marginHorizontal: 0,
-                width: 260, // عرض مناسب فقط
-                alignSelf: 'flex-end',
-              },
-              { opacity: fadeAnim, transform: [{ scale: scaleAnim }, { translateY: translateYAnim }] }
-            ]}
+                          style={[
+                styles.drawer,
+                {
+                  width: SCREEN_WIDTH * 0.75,
+                  transform: [{ translateX: drawerAnim }],
+                },
+              ]}
           >
             {/* Avatar section */}
             <View style={styles.avatarSection}>
@@ -165,46 +124,32 @@ export default function CustomHeader({ title, subtitle, showBackButton, onMenuPr
             <View style={styles.divider} />
             {/* Menu items */}
             {menuItems.map((item, idx) => (
-              <React.Fragment key={item.label}>
-                <Animated.View
-                  style={{
-                    opacity: fadeAnim,
-                    transform: [{ translateY: translateYAnim }],
-                  }}
-                >
-                  <TouchableOpacity
-                    style={[
-                      styles.dropdownItem,
-                      pressedIndex === idx && styles.dropdownItemActive,
-                      { justifyContent: 'center' },
-                    ]}
-                    activeOpacity={0.7}
-                    onPress={item.onPress}
-                    onPressIn={() => setPressedIndex(idx)}
-                    onPressOut={() => setPressedIndex(null)}
-                    accessibilityRole="menuitem"
-                    accessibilityLabel={item.label}
-                  >
-                    <View style={[styles.itemRow, { justifyContent: 'center' }]}> {/* وسط العناصر */}
-                      {item.icon}
-                      <Text style={styles.dropdownText}>{item.label}</Text>
-                    </View>
-                  </TouchableOpacity>
-                </Animated.View>
-                {idx < menuItems.length - 1 && <View style={styles.dividerThin} />}
-              </React.Fragment>
+              <TouchableOpacity
+                key={item.label}
+                style={[
+                  styles.drawerItem,
+                  pressedIndex === idx && styles.drawerItemActive,
+                ]}
+                activeOpacity={0.7}
+                onPress={item.onPress}
+                onPressIn={() => setPressedIndex(idx)}
+                onPressOut={() => setPressedIndex(null)}
+                accessibilityRole="menuitem"
+                accessibilityLabel={item.label}
+              >
+                {React.cloneElement(item.icon, { size: 24, color: '#4A90E2' })}
+                <Text style={styles.drawerText}>{item.label}</Text>
+              </TouchableOpacity>
             ))}
             {/* Logout Button */}
             <TouchableOpacity
-              style={[styles.logoutButton, { justifyContent: 'center' }]}
+              style={styles.logoutButton}
               onPress={async () => { closeDropdown(); await logout(); router.replace('/(auth)/login'); }}
               accessibilityRole="menuitem"
               accessibilityLabel="Logout"
             >
-              <View style={[styles.itemRow, { justifyContent: 'center' }]}> {/* وسط العناصر */}
-                <LogOut size={20} color={Colors.error} style={styles.itemIcon} />
-                <Text style={styles.logoutText}>Logout</Text>
-              </View>
+              <LogOut size={24} color="#D0021B" style={styles.itemIcon} />
+              <Text style={[styles.drawerText, { color: '#D0021B' }]}>Logout</Text>
             </TouchableOpacity>
           </Animated.View>
         </TouchableOpacity>
@@ -263,27 +208,43 @@ const styles = StyleSheet.create({
     marginLeft: 'auto', // Push icon to the right
   },
 
-  // Dropdown styles
-  dropdownOverlay: {
+  // Drawer styles
+  drawerOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.35)', // Slightly darker and more distinct overlay
+    backgroundColor: 'rgba(0,0,0,0.18)',
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
   },
-  dropdownMenu: {
-    backgroundColor: Colors.white,
-    borderRadius: 20,
-    minWidth: 220,
-    maxWidth: 320,
-    elevation: 2,
-    shadowColor: Colors.black,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.08,
-    shadowRadius: 8,
-    alignItems: 'stretch',
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: Colors.gray[200],
-    paddingBottom: 8,
-    paddingTop: 0,
-    marginHorizontal: 0,
+  drawer: {
+    backgroundColor: '#fff',
+    height: '100%',
+    borderTopLeftRadius: 24,
+    borderBottomLeftRadius: 24,
+    paddingTop: 32,
+    paddingHorizontal: 24,
+    shadowColor: 'rgba(0,0,0,0.18)',
+    shadowOffset: { width: -4, height: 0 },
+    shadowOpacity: 1,
+    shadowRadius: 18,
+    elevation: 12,
+    zIndex: 100,
+  },
+  drawerItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 18,
+    borderRadius: 12,
+    marginBottom: 8,
+    backgroundColor: '#fff',
+  },
+  drawerItemActive: {
+    backgroundColor: '#F5A62322',
+  },
+  drawerText: {
+    fontSize: 18,
+    color: '#4A90E2',
+    fontWeight: '600',
+    marginLeft: 16,
   },
   arrowContainer: {
     position: 'absolute',
@@ -310,9 +271,9 @@ const styles = StyleSheet.create({
   },
   avatarSection: {
     alignItems: 'center',
-    paddingVertical: 20, // Increased padding for more breathing room
-    borderTopLeftRadius: 12,
-    borderTopRightRadius: 12,
+    paddingVertical: 24, // More padding for better spacing
+    borderTopLeftRadius: 16,
+    borderTopRightRadius: 16,
   },
   avatarCircle: {
     width: 60, // Slightly larger avatar
@@ -355,13 +316,13 @@ const styles = StyleSheet.create({
   dropdownItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 16, // More touchable
-    paddingHorizontal: 28, // More padding
+    paddingVertical: 18, // More touchable
+    paddingHorizontal: 24, // Better padding
     backgroundColor: Colors.white,
-    borderRadius: 8,
-    marginHorizontal: 8,
-    marginVertical: 2,
-    minHeight: 48,
+    borderRadius: 12,
+    marginHorizontal: 12,
+    marginVertical: 3,
+    minHeight: 52,
   },
   dropdownItemActive: {
     backgroundColor: Colors.gray[100],
@@ -387,21 +348,21 @@ const styles = StyleSheet.create({
   logoutButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 16,
-    paddingHorizontal: 28,
-    backgroundColor: Colors.error + '10', // Subtle error background
-    borderTopWidth: StyleSheet.hairlineWidth,
+    paddingVertical: 18,
+    paddingHorizontal: 24,
+    backgroundColor: '#D0021B08', // Subtle error background
+    borderTopWidth: 1,
     borderTopColor: Colors.gray[200],
-    marginTop: 12,
+    marginTop: 16,
     borderBottomLeftRadius: 16,
     borderBottomRightRadius: 16,
-    minHeight: 48,
-    marginHorizontal: 8,
-    marginBottom: 4,
+    minHeight: 52,
+    marginHorizontal: 12,
+    marginBottom: 8,
   },
   logoutText: {
     ...Typography.buttonText,
-    color: Colors.error,
+    color: '#D0021B',
     fontWeight: '600',
     fontSize: 16,
   },

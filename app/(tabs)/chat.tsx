@@ -1,11 +1,12 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { View, Text, ScrollView, StyleSheet, TextInput, TouchableOpacity, KeyboardAvoidingView, Platform, Image } from 'react-native';
+import { Picker } from '@react-native-picker/picker';
 import { StatusBar } from 'expo-status-bar';
 import CustomHeader from '../../components/CustomHeader';
 import Card from '../../components/Card';
 import { Colors } from '../../constants/Colors';
 import { useAuthStore } from '../../store/authStore';
-import { fetchChatMessages, sendChatMessage, fetchChildren, fetchActiveBuses } from '../../services/busService';
+import { fetchChatMessages, sendChatMessage, fetchChildren, fetchActiveBuses, fetchStudentBookings, fetchDriverTodayTrips } from '../../services/busService';
 import { io, Socket } from 'socket.io-client';
 import * as ImagePicker from 'expo-image-picker';
 import { MaterialIcons } from '@expo/vector-icons';
@@ -39,46 +40,55 @@ export default function ChatScreen() {
     transform: [{ translateY: (1 - fadeValue.value) * 30 }],
   }));
 
+  // 1. أضف حالة لتخزين الرحلات المتاحة والرحلة المختارة
+  const [selectedTrip, setSelectedTrip] = useState<any | null>(null);
+  const [tripId, setTripId] = useState<string>('');
+
+  // عند تحميل الصفحة، اجلب الرحلة النشطة فقط (أو أول رحلة متاحة) للمستخدم
   useEffect(() => {
-    const getBusId = async () => {
-      if (!user) return setBusIdError('لا يوجد مستخدم مسجل');
-      if (user.role === 'parent') {
-        const ch = await fetchChildren();
-        setChildren(ch);
-        if (ch.length > 0 && ch[0].busId) {
-          setBusId(ch[0].busId);
-          setBusIdError(null);
-        } else {
-          setBusId('default'); // قيمة افتراضية
-          setBusIdError(null);
-        }
-      } else if (user.role === 'driver') {
-        const bs = await fetchActiveBuses();
-        setBuses(bs);
-        const bus = bs.find((b: any) => String(b.driverId) === String(user.id));
-        if (bus && (bus.id || bus._id)) {
-          setBusId(bus.id || bus._id);
-          setBusIdError(null);
-        } else {
-          setBusId('default'); // قيمة افتراضية
-          setBusIdError(null);
-        }
-      } else {
-        setBusId('general');
-        setBusIdError(null);
-      }
-    };
-    getBusId();
+    if (!user) return;
+    if (user.role === 'parent') {
+      fetchChildren().then((children: any[]) => {
+        Promise.all(children.map((child: any) => fetchStudentBookings(child._id)))
+          .then((results: any[]) => {
+            // ابحث عن أول رحلة حالية (status === 'started' أو 'active') أو خذ أول رحلة متاحة
+            const allTrips = results.flat().map((b: any) => b.tripId).filter(Boolean);
+            let activeTrip = allTrips.find((t: any) => t.status === 'started' || t.status === 'active');
+            if (!activeTrip && allTrips.length > 0) activeTrip = allTrips[0];
+            if (activeTrip) setSelectedTrip(activeTrip);
+          });
+      });
+    } else if (user.role === 'student') {
+      fetchStudentBookings(user.id).then((bookings: any[]) => {
+        const allTrips = bookings.map((b: any) => b.tripId).filter(Boolean);
+        let activeTrip = allTrips.find((t: any) => t.status === 'started' || t.status === 'active');
+        if (!activeTrip && allTrips.length > 0) activeTrip = allTrips[0];
+        if (activeTrip) setSelectedTrip(activeTrip);
+      });
+    } else if (user.role === 'driver') {
+      fetchDriverTodayTrips(user.id).then((trips: any[]) => {
+        let activeTrip = trips.find((t: any) => t.status === 'started' || t.status === 'active');
+        if (!activeTrip && trips.length > 0) activeTrip = trips[0];
+        if (activeTrip) setSelectedTrip(activeTrip);
+      });
+    }
   }, [user]);
+
+  // 3. عند تغيير الرحلة المختارة، حدّث busId و tripId
+  useEffect(() => {
+    if (!selectedTrip) return;
+    setBusId(selectedTrip.busId || selectedTrip.bus?._id || selectedTrip.bus?._id || '');
+    setTripId(selectedTrip._id || selectedTrip.id || '');
+  }, [selectedTrip]);
 
   useEffect(() => {
     if (!busId) return;
     setLoading(true);
-    fetchChatMessages(busId)
+    fetchChatMessages(busId, tripId)
       .then(setMessages)
       .finally(() => setLoading(false));
     // إعداد socket.io
-    const s = io('http://192.168.1.84:5000'); // استخدم IP السيرفر الصحيح
+    const s = io('http://10.171.240.82:5000'); // استخدم IP السيرفر الصحيح
     setSocket(s);
     console.log('الانضمام لغرفة الباص:', busId);
     s.emit('join-bus', busId);
@@ -88,7 +98,7 @@ export default function ChatScreen() {
       setTimeout(() => scrollViewRef.current?.scrollToEnd({ animated: true }), 100);
     });
     return () => { s.disconnect(); };
-  }, [busId]);
+  }, [busId, tripId]);
 
   const handlePickImage = async (type: 'camera' | 'gallery') => {
     let result;
@@ -113,7 +123,7 @@ export default function ChatScreen() {
   };
 
   const handleSend = async () => {
-    if ((!input.trim() && !image) || !busId) return;
+    if ((!input.trim() && !image) || !busId || !tripId) return;
     let imageUrl = undefined;
     if (image) {
       // رفع الصورة للباك اند (يفترض وجود endpoint /api/uploads أو مشابه)
@@ -123,7 +133,7 @@ export default function ChatScreen() {
         name: 'chat.jpg',
         type: 'image/jpeg',
       } as any);
-      const res = await fetch('http://192.168.1.84:5000/api/uploads', {
+              const res = await fetch('http://10.171.240.82:5000/api/uploads', {
         method: 'POST',
         body: formData,
         headers: { 'Content-Type': 'multipart/form-data' },
@@ -134,6 +144,7 @@ export default function ChatScreen() {
     const newMsg = {
       id: Date.now(), // مفتاح فريد مؤقت
       busId,
+      tripId,
       senderId: user?.id || '',
       senderRole: user?.role || '',
       message: input,
@@ -141,7 +152,7 @@ export default function ChatScreen() {
       createdAt: new Date()
     };
     try {
-      await sendChatMessage(busId, newMsg);
+      await sendChatMessage(busId, tripId, newMsg);
       setInput('');
       setImage(null);
       setMessages(prev => [...prev, newMsg]); // تظهر الرسالة فوراً للمرسل
@@ -200,6 +211,7 @@ export default function ChatScreen() {
           showsVerticalScrollIndicator={false}
           contentContainerStyle={styles.messagesContent}
         >
+          {/* لا تعرض أي Picker أو اختيار للرحلة، فقط محادثة الرحلة النشطة */}
           <View style={styles.dateHeader}>
             <Text style={styles.dateText}>Today</Text>
           </View>

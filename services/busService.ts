@@ -84,13 +84,13 @@ export const fetchNotifications = async () => {
   return response.data;
 };
 
-export const fetchChatMessages = async (busId: string) => {
-  const response = await api.get(`/chats/${busId}`);
+export const fetchChatMessages = async (busId: string, tripId: string) => {
+  const response = await api.get(`/chats/${busId}/${tripId}`);
   return response.data;
 };
 
-export const sendChatMessage = async (busId: string, data: { senderId: string, senderRole: string, message: string }) => {
-  const response = await api.post(`/chats/${busId}`, data);
+export const sendChatMessage = async (busId: string, tripId: string, data: { senderId: string, senderRole: string, message: string, imageUrl?: string }) => {
+  const response = await api.post(`/chats/${busId}/${tripId}`, data);
   return response.data;
 };
 
@@ -100,5 +100,20 @@ export const markBusChatAsRead = async (busId: string, userId: string) => {
 
 export const fetchProfileStats = async () => {
   const response = await api.get('/user/stats');
+  return response.data;
+};
+
+export const fetchStudentBookings = async (studentId: string) => {
+  const response = await api.get(`/bookings/student/${studentId}`);
+  return response.data;
+};
+
+export const fetchDriverTodayTrips = async (driverId: string) => {
+  const today = new Date();
+  const yyyy = today.getFullYear();
+  const mm = String(today.getMonth() + 1).padStart(2, '0');
+  const dd = String(today.getDate()).padStart(2, '0');
+  const dateStr = `${yyyy}-${mm}-${dd}`;
+  const response = await api.get(`/trips?date=${dateStr}&driverId=${driverId}`);
   return response.data;
 }; 
