@@ -116,4 +116,17 @@ export const fetchDriverTodayTrips = async (driverId: string) => {
   const dateStr = `${yyyy}-${mm}-${dd}`;
   const response = await api.get(`/trips?date=${dateStr}&driverId=${driverId}`);
   return response.data;
+};
+
+export const updateTripStatus = async (tripId: string, status: 'scheduled' | 'started' | 'ended' | 'cancelled') => {
+  const response = await api.put(`/trips/${tripId}`, { status });
+  return response.data;
+};
+
+export const startTripTracking = async (tripId: string) => {
+  return updateTripStatus(tripId, 'started');
+};
+
+export const endTripTracking = async (tripId: string) => {
+  return updateTripStatus(tripId, 'ended');
 }; 

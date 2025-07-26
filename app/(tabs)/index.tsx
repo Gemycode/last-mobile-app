@@ -1,19 +1,26 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, ScrollView, StyleSheet, TouchableOpacity } from 'react-native';
+import { View, Text, ScrollView, StyleSheet, TouchableOpacity, ActivityIndicator, FlatList, Alert } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
-import { MapPin, Bell, Clock, Users, Activity, ArrowRight } from 'lucide-react-native';
+import { MapPin, Bell, Clock, Users, Activity, ArrowRight, Calendar, Navigation, Bus } from 'lucide-react-native';
 import CustomHeader from '../../components/CustomHeader';
 import { Colors } from '../../constants/Colors';
 import { useAuthStore } from '../../store/authStore';
-import { fetchActiveBuses, fetchTrips, fetchChildren, bookSeat } from '../../services/busService';
+import { fetchActiveBuses, fetchTrips, fetchChildren, bookSeat, fetchDriverTodayTrips, startTripTracking } from '../../services/busService';
 import { useRouter } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
 import Animated, { useSharedValue, withSpring, useAnimatedStyle } from 'react-native-reanimated';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
 
 const getTodayStats = (children: any[], trips: any[], buses: any[]) => [
   { icon: MapPin, label: 'Active Buses', value: buses.length, color: Colors.primary },
   { icon: Users, label: 'Children Tracked', value: children.length, color: '#06B6D4' },
   { icon: Clock, label: 'Active Trips', value: trips.length, color: '#10B981' },
+];
+
+const getDriverStats = (trips: any[], buses: any[]) => [
+  { icon: Calendar, label: 'رحلات اليوم', value: trips.length, color: Colors.primary },
+  { icon: Bus, label: 'الباصات المخصصة', value: buses.length, color: '#06B6D4' },
+  { icon: Navigation, label: 'رحلات نشطة', value: trips.filter(t => t.status === 'started').length, color: '#10B981' },
 ];
 
 const recentActivity = [
@@ -27,7 +34,21 @@ const getStatusColor = (status: string) => {
     case 'active': return Colors.primary;
     case 'completed': return '#10B981';
     case 'warning': return '#F59E0B';
+    case 'started': return '#10B981';
+    case 'scheduled': return '#3B82F6';
+    case 'ended': return '#6B7280';
+    case 'cancelled': return '#EF4444';
     default: return '#94a3b8';
+  }
+};
+
+const getStatusText = (status: string) => {
+  switch (status) {
+    case 'started': return 'نشطة';
+    case 'scheduled': return 'مجدولة';
+    case 'ended': return 'منتهية';
+    case 'cancelled': return 'ملغية';
+    default: return status;
   }
 };
 
@@ -35,8 +56,11 @@ export default function HomeScreen() {
   const user = useAuthStore(state => state.user);
   const router = useRouter();
   const [buses, setBuses] = useState([]);
-  const [trips, setTrips] = useState([]);
+  const [trips, setTrips] = useState<any[]>([]);
   const [children, setChildren] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [selectedTrip, setSelectedTrip] = useState(null);
+  const [isTracking, setIsTracking] = useState(false);
 
   const fadeValue = useSharedValue(0);
   useEffect(() => {
@@ -48,27 +72,179 @@ export default function HomeScreen() {
   }));
 
   useEffect(() => {
-    if (user?.role === 'parent') {
-      fetchChildren().then(setChildren).catch(console.error);
-      fetchActiveBuses().then(setBuses).catch(console.error);
-      fetchTrips().then(setTrips).catch(console.error);
-    } else {
-      fetchActiveBuses().then(setBuses).catch(console.error);
-      fetchTrips().then(setTrips).catch(console.error);
+    const loadData = async () => {
+      setLoading(true);
+      try {
+        if (user?.role === 'parent') {
+          const [childrenData, busesData, tripsData] = await Promise.all([
+            fetchChildren(),
+            fetchActiveBuses(),
+            fetchTrips()
+          ]);
+          setChildren(childrenData);
+          setBuses(busesData);
+          setTrips(tripsData);
+        } else if (user?.role === 'driver') {
+          const [busesData, tripsData] = await Promise.all([
+            fetchActiveBuses(),
+            fetchDriverTodayTrips(user.id)
+          ]);
+          setBuses(busesData);
+          setTrips(tripsData);
+        } else {
+          const [busesData, tripsData] = await Promise.all([
+            fetchActiveBuses(),
+            fetchTrips()
+          ]);
+          setBuses(busesData);
+          setTrips(tripsData);
+        }
+      } catch (error) {
+        console.error('Error loading data:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadData();
+  }, [user?.role, user?.id]);
+
+  const startTracking = async (trip: any) => {
+    try {
+      await startTripTracking(trip._id);
+      Alert.alert('تم بدء التتبع', 'تم بدء تتبع الرحلة بنجاح');
+      setSelectedTrip(trip);
+      setIsTracking(true);
+      // تحديث قائمة الرحلات
+      const updatedTrips = trips.map(t => 
+        t._id === trip._id ? { ...t, status: 'started' } : t
+      );
+      setTrips(updatedTrips);
+    } catch (error) {
+      console.error('Error starting trip tracking:', error);
+      Alert.alert('خطأ', 'حدث خطأ أثناء بدء التتبع');
     }
-  }, [user?.role]);
+  };
+
+  const renderDriverTripCard = ({ item: trip }: { item: any }) => (
+    <Animated.View style={[styles.tripCard, animatedStyle]}>
+      <LinearGradient 
+        colors={[getStatusColor(trip.status) + '10', getStatusColor(trip.status) + '05']} 
+        style={styles.tripCardGradient}
+      >
+        <View style={styles.tripCardHeader}>
+          <View style={styles.tripCardTitleSection}>
+            <MaterialCommunityIcons 
+              name="bus" 
+              size={24} 
+              color={getStatusColor(trip.status)} 
+            />
+            <View style={styles.tripCardTitleContainer}>
+              <Text style={[styles.tripCardTitle, { color: getStatusColor(trip.status) }]}>
+                {(typeof trip.routeId === 'object' && trip.routeId?.name)
+                  ? trip.routeId.name
+                  : (typeof trip.routeId === 'string' ? trip.routeId : 'مسار غير محدد')}
+              </Text>
+              <Text style={styles.tripCardSubtitle}>
+                الباص: {trip.busId?.BusNumber || trip.busNumber || 'غير محدد'}
+              </Text>
+            </View>
+          </View>
+          <View style={[styles.statusBadge, { backgroundColor: getStatusColor(trip.status) + '20' }]}>
+            <Text style={[styles.statusText, { color: getStatusColor(trip.status) }]}>
+              {getStatusText(trip.status)}
+            </Text>
+          </View>
+        </View>
+
+        <View style={styles.tripCardDetails}>
+          <View style={styles.tripDetailItem}>
+            <Clock size={16} color="#64748b" />
+            <Text style={styles.tripDetailText}>
+              {new Date(trip.date).toLocaleDateString('ar-SA')} - {trip.startTime || 'وقت غير محدد'}
+            </Text>
+          </View>
+          
+          <View style={styles.tripDetailItem}>
+            <MapPin size={16} color="#64748b" />
+            <Text style={styles.tripDetailText}>
+              {(typeof trip.routeId?.start_point === 'object'
+                ? trip.routeId?.start_point?.name
+                : trip.routeId?.start_point) || 'نقطة البداية'}
+              {' → '}
+              {(typeof trip.routeId?.end_point === 'object'
+                ? trip.routeId?.end_point?.name
+                : trip.routeId?.end_point) || 'نقطة النهاية'}
+            </Text>
+          </View>
+
+          {trip.routeId?.estimated_time && (
+            <View style={styles.tripDetailItem}>
+              <Navigation size={16} color="#64748b" />
+              <Text style={styles.tripDetailText}>
+                المدة المتوقعة: {trip.routeId.estimated_time} دقيقة
+              </Text>
+            </View>
+          )}
+        </View>
+
+        <View style={styles.tripCardActions}>
+          {trip.status === 'scheduled' && (
+            <TouchableOpacity
+              style={[styles.actionButton, { backgroundColor: Colors.primary }]}
+              onPress={() => startTracking(trip)}
+            >
+              <Navigation size={16} color="#fff" />
+              <Text style={styles.actionButtonText}>بدء التتبع</Text>
+            </TouchableOpacity>
+          )}
+          
+          {trip.status === 'started' && (
+            <TouchableOpacity
+              style={[styles.actionButton, { backgroundColor: '#10B981' }]}
+              onPress={() => router.push('/tracking')}
+            >
+              <MapPin size={16} color="#fff" />
+              <Text style={styles.actionButtonText}>عرض التتبع</Text>
+            </TouchableOpacity>
+          )}
+
+          <TouchableOpacity
+            style={[styles.actionButton, { backgroundColor: '#6B7280' }]}
+            onPress={() => router.push('/chat')}
+          >
+            <MaterialCommunityIcons name="chat" size={16} color="#fff" />
+            <Text style={styles.actionButtonText}>المحادثة</Text>
+          </TouchableOpacity>
+        </View>
+      </LinearGradient>
+    </Animated.View>
+  );
+
+  if (loading) {
+    return (
+      <>
+        <CustomHeader title="الرئيسية" subtitle="مرحباً بك في نظام تتبع الباصات" />
+        <StatusBar style="light" />
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color={Colors.primary} />
+          <Text style={styles.loadingText}>جاري تحميل البيانات...</Text>
+        </View>
+      </>
+    );
+  }
 
   return (
     <>
-      <CustomHeader title="Home" subtitle="Track your children safely" />
+      <CustomHeader title="الرئيسية" subtitle="مرحباً بك في نظام تتبع الباصات" />
       <StatusBar style="light" />
       <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
         {/* Today's Stats */}
-        {(user?.role === 'parent' || user?.role === 'admin') && (
+        {user?.role === 'driver' ? (
           <Animated.View style={[styles.section, animatedStyle]}>
-            <Text style={styles.sectionTitle}>Today's Overview</Text>
+            <Text style={styles.sectionTitle}>إحصائيات اليوم</Text>
             <View style={styles.statsGrid}>
-              {getTodayStats(children, trips, buses).map((stat, index) => (
+              {getDriverStats(trips, buses).map((stat, index) => (
                 <View key={index} style={styles.statCard}>
                   <View style={[styles.statIcon, { backgroundColor: stat.color + '20' }]}> 
                     <stat.icon size={20} color={stat.color} />
@@ -78,6 +254,52 @@ export default function HomeScreen() {
                 </View>
               ))}
             </View>
+          </Animated.View>
+        ) : (
+          (user?.role === 'parent' || user?.role === 'admin') && (
+            <Animated.View style={[styles.section, animatedStyle]}>
+              <Text style={styles.sectionTitle}>Today's Overview</Text>
+              <View style={styles.statsGrid}>
+                {getTodayStats(children, trips, buses).map((stat, index) => (
+                  <View key={index} style={styles.statCard}>
+                    <View style={[styles.statIcon, { backgroundColor: stat.color + '20' }]}> 
+                      <stat.icon size={20} color={stat.color} />
+                    </View>
+                    <Text style={[styles.statValue, { color: stat.color }]}>{stat.value}</Text>
+                    <Text style={styles.statLabel}>{stat.label}</Text>
+                  </View>
+                ))}
+              </View>
+            </Animated.View>
+          )
+        )}
+
+        {/* Driver Trips Section */}
+        {user?.role === 'driver' && (
+          <Animated.View style={[styles.section, animatedStyle]}>
+            <View style={styles.sectionHeader}>
+              <Text style={styles.sectionTitle}>رحلات اليوم</Text>
+              <Text style={styles.tripCount}>{trips.length} رحلة</Text>
+            </View>
+            
+            {trips.length === 0 ? (
+              <View style={styles.emptyState}>
+                <MaterialCommunityIcons name="bus-clock" size={80} color="#CBD5E1" />
+                <Text style={styles.emptyStateTitle}>لا توجد رحلات اليوم</Text>
+                <Text style={styles.emptyStateSubtitle}>
+                  لا توجد رحلات مخصصة لك اليوم. تحقق من الجدول الأسبوعي.
+                </Text>
+              </View>
+            ) : (
+              <FlatList
+                data={trips}
+                renderItem={renderDriverTripCard}
+                keyExtractor={(item) => item._id || item.id}
+                scrollEnabled={false}
+                showsVerticalScrollIndicator={false}
+                contentContainerStyle={styles.tripsList}
+              />
+            )}
           </Animated.View>
         )}
 
@@ -153,7 +375,7 @@ export default function HomeScreen() {
 
         {/* Quick Actions */}
         <Animated.View style={[styles.section, animatedStyle]}>
-          <Text style={styles.sectionTitle}>Quick Actions</Text>
+          <Text style={styles.sectionTitle}>إجراءات سريعة</Text>
           <View style={styles.quickActions}>
             <TouchableOpacity 
               style={styles.actionCard}
@@ -161,8 +383,8 @@ export default function HomeScreen() {
             >
               <LinearGradient colors={[Colors.primary, '#3A6D8C']} style={styles.actionGradient}>
                 <MapPin size={24} color="#fff" />
-                <Text style={styles.actionTitle}>Live Tracking</Text>
-                <Text style={styles.actionSubtitle}>View real-time location</Text>
+                <Text style={styles.actionTitle}>التتبع المباشر</Text>
+                <Text style={styles.actionSubtitle}>عرض الموقع المباشر</Text>
                 <ArrowRight size={16} color="#fff" style={styles.actionArrow} />
               </LinearGradient>
             </TouchableOpacity>
@@ -172,8 +394,8 @@ export default function HomeScreen() {
             >
               <LinearGradient colors={['#06B6D4', '#0891B2']} style={styles.actionGradient}>
                 <Activity size={24} color="#fff" />
-                <Text style={styles.actionTitle}>QR Scanner</Text>
-                <Text style={styles.actionSubtitle}>Scan bus QR codes</Text>
+                <Text style={styles.actionTitle}>ماسح QR</Text>
+                <Text style={styles.actionSubtitle}>مسح رموز الباص</Text>
                 <ArrowRight size={16} color="#fff" style={styles.actionArrow} />
               </LinearGradient>
             </TouchableOpacity>
@@ -233,6 +455,8 @@ const styles = StyleSheet.create({
   content: { flex: 1, paddingHorizontal: 24, backgroundColor: '#f8fafc' },
   section: { marginTop: 32 },
   sectionTitle: { fontSize: 22, fontWeight: 'bold', color: '#1e293b', marginBottom: 16 },
+  sectionHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 },
+  tripCount: { fontSize: 14, color: Colors.primary, fontWeight: '600' },
   statsGrid: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between' },
   statCard: { flex: 1, backgroundColor: '#fff', padding: 20, borderRadius: 16, alignItems: 'center', marginHorizontal: 4, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.1, shadowRadius: 8, elevation: 3 },
   statIcon: { width: 44, height: 44, borderRadius: 12, justifyContent: 'center', alignItems: 'center', marginBottom: 12 },
@@ -244,7 +468,6 @@ const styles = StyleSheet.create({
   actionTitle: { fontSize: 16, fontWeight: 'bold', color: '#fff', marginTop: 12, marginBottom: 4 },
   actionSubtitle: { fontSize: 12, color: 'rgba(255,255,255,0.8)' },
   actionArrow: { position: 'absolute', top: 20, right: 20 },
-  sectionHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 },
   viewAllText: { fontSize: 14, color: '#4F46E5', fontWeight: '600' },
   activityList: { backgroundColor: '#fff', borderRadius: 16, padding: 20, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.1, shadowRadius: 8, elevation: 3 },
   activityItem: { flexDirection: 'row', alignItems: 'flex-start', marginBottom: 20 },
@@ -260,5 +483,26 @@ const styles = StyleSheet.create({
   safetyIcon: { width: 50, height: 50, borderRadius: 15, backgroundColor: 'rgba(255,255,255,0.2)', justifyContent: 'center', alignItems: 'center', marginRight: 16 },
   safetyText: { flex: 1 },
   safetyTitle: { fontSize: 18, fontWeight: 'bold', color: '#fff', marginBottom: 4 },
-  safetySubtitle: { fontSize: 14, color: 'rgba(255,255,255,0.9)', lineHeight: 20 },
+  safetySubtitle: { fontSize: 14, color: 'rgba(255,255,255,0.9)', lineHeight: 20 },
+  loadingContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#f8fafc' },
+  loadingText: { marginTop: 16, fontSize: 16, color: '#64748b' },
+  tripsList: { paddingBottom: 16 },
+  tripCard: { marginBottom: 16, borderRadius: 16, overflow: 'hidden', shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.1, shadowRadius: 8, elevation: 4 },
+  tripCardGradient: { padding: 20 },
+  tripCardHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 16 },
+  tripCardTitleSection: { flexDirection: 'row', alignItems: 'center', flex: 1 },
+  tripCardTitleContainer: { marginLeft: 12, flex: 1 },
+  tripCardTitle: { fontSize: 18, fontWeight: 'bold', marginBottom: 4 },
+  tripCardSubtitle: { fontSize: 14, color: '#64748b' },
+  statusBadge: { paddingHorizontal: 12, paddingVertical: 6, borderRadius: 12 },
+  statusText: { fontSize: 12, fontWeight: 'bold' },
+  tripCardDetails: { marginBottom: 16 },
+  tripDetailItem: { flexDirection: 'row', alignItems: 'center', marginBottom: 8 },
+  tripDetailText: { fontSize: 14, color: '#64748b', marginLeft: 8, flex: 1 },
+  tripCardActions: { flexDirection: 'row', justifyContent: 'space-between' },
+  actionButton: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 8, borderRadius: 12, flex: 1, marginHorizontal: 4 },
+  actionButtonText: { color: '#fff', fontWeight: 'bold', fontSize: 14, marginLeft: 6 },
+  emptyState: { alignItems: 'center', paddingVertical: 40, backgroundColor: '#fff', borderRadius: 16, marginTop: 16 },
+  emptyStateTitle: { fontSize: 18, fontWeight: 'bold', color: '#64748b', marginTop: 16, marginBottom: 8 },
+  emptyStateSubtitle: { fontSize: 14, color: '#94a3b8', textAlign: 'center', paddingHorizontal: 32 },
 });
