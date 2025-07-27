@@ -329,9 +329,7 @@ export default function CustomHeader({
 }
 
 const styles = StyleSheet.create({
-  safeArea: {
-    backgroundColor: Colors.primary,
-  },
+
   gradient: {
     width: '100%',
     paddingTop: 0,
