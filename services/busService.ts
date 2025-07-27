@@ -70,17 +70,8 @@ export const updateChild = async (childId: string, data: any) => {
 };
 
 export const fetchNotifications = async () => {
-  // جلب userId من localStorage أو من useAuthStore
-  const authStr = localStorage.getItem('auth');
-  if (!authStr) throw new Error('User ID not found');
-  let userId: string | undefined;
-  try {
-    userId = JSON.parse(authStr)?.user?._id;
-  } catch {
-    throw new Error('User ID not found');
-  }
-  if (!userId || typeof userId !== 'string') throw new Error('User ID not found');
-  const response = await api.get(`/notifications/${userId}`);
+  // Use the current user from auth store instead of localStorage
+  const response = await api.get('/notifications');
   return response.data;
 };
 
@@ -89,9 +80,15 @@ export const fetchChatMessages = async (busId: string, tripId: string) => {
   return response.data;
 };
 
-export const sendChatMessage = async (busId: string, tripId: string, data: { senderId: string, senderRole: string, message: string, imageUrl?: string }) => {
-  const response = await api.post(`/chats/${busId}/${tripId}`, data);
-  return response.data;
+export const sendChatMessage = async (busId: string, tripId: string, data: { senderId: string, senderRole: string, senderName?: string, message: string, imageUrl?: string }) => {
+  try {
+    const response = await api.post(`/chats/${busId}/${tripId}`, data);
+    return response.data;
+  } catch (error) {
+    console.error('Error sending chat message:', error);
+    console.error('Request data:', { busId, tripId, data });
+    throw error;
+  }
 };
 
 export const markBusChatAsRead = async (busId: string, userId: string) => {
@@ -116,4 +113,37 @@ export const fetchDriverTodayTrips = async (driverId: string) => {
   const dateStr = `${yyyy}-${mm}-${dd}`;
   const response = await api.get(`/trips?date=${dateStr}&driverId=${driverId}`);
   return response.data;
+};
+
+export const fetchDriverInfo = async (driverId: string) => {
+  try {
+    const response = await api.get(`/users/${driverId}`);
+    return response.data;
+  } catch (error) {
+    console.error('Error fetching driver info:', error);
+    throw error;
+  }
+};
+
+export const fetchAllDrivers = async () => {
+  try {
+    const response = await api.get('/users/drivers');
+    console.log('fetchAllDrivers response:', response.data);
+    return response.data;
+  } catch (error) {
+    console.error('Error fetching all drivers:', error);
+    // Return empty array if the endpoint fails
+    return [];
+  }
+};
+
+export const fetchBusInfo = async (busId: string) => {
+  try {
+    const response = await api.get(`/bus/${busId}`);
+    console.log('fetchBusInfo response:', response.data);
+    return response.data;
+  } catch (error) {
+    console.error('Error fetching bus info:', error);
+    return null;
+  }
 }; 

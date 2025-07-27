@@ -36,8 +36,15 @@ export default function ProfileScreen() {
     if (storeUser) {
       fetchCurrentUser().then(res => {
         setUser(res.data?.user || storeUser);
-      }).catch(() => setUser(storeUser));
-      fetchProfileStats().then(setProfileStats).catch(console.error);
+      }).catch((error) => {
+        console.error('Error fetching current user:', error);
+        setUser(storeUser);
+      });
+      fetchProfileStats().then(setProfileStats).catch((error) => {
+        console.error('Error fetching profile stats:', error);
+        // Set default stats if API fails
+        setProfileStats({ trips: 0, children: 0, points: 0 });
+      });
     }
   }, [storeUser]);
 
@@ -80,7 +87,8 @@ export default function ProfileScreen() {
       setOldPassword('');
       setNewPassword('');
     } catch (e: any) {
-      Alert.alert('Error', e?.response?.data?.message || 'Failed to change password');
+      console.error('Password change error:', e);
+      Alert.alert('Error', e?.response?.data?.message || 'Failed to change password. Please try again.');
     } finally {
       setChanging(false);
     }
@@ -106,30 +114,37 @@ export default function ProfileScreen() {
       setShowEditModal(false);
       Alert.alert('Success', 'Profile updated successfully');
     } catch (e: any) {
-      Alert.alert('Error', e?.response?.data?.message || 'Failed to update profile');
+      console.error('Profile update error:', e);
+      Alert.alert('Error', e?.response?.data?.message || 'Failed to update profile. Please try again.');
     } finally {
       setSavingEdit(false);
     }
   };
 
   const handlePickImage = async () => {
-    const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
-      allowsEditing: true,
-      aspect: [1, 1],
-      quality: 0.7,
-    });
-    if (!result.canceled && result.assets && result.assets[0]?.uri) {
-      setUploading(true);
-      try {
-        const res = await uploadProfileImage(result.assets[0].uri);
-        setUser((prev: any) => ({ ...prev, profileImage: res.data.data.profileImage }));
-        Alert.alert('Success', 'Profile image updated');
-      } catch (e: any) {
-        Alert.alert('Error', e?.response?.data?.message || 'Failed to upload image');
-      } finally {
-        setUploading(false);
+    try {
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: true,
+        aspect: [1, 1],
+        quality: 0.7,
+      });
+      if (!result.canceled && result.assets && result.assets[0]?.uri) {
+        setUploading(true);
+        try {
+          const res = await uploadProfileImage(result.assets[0].uri);
+          setUser((prev: any) => ({ ...prev, profileImage: res.data.data.profileImage }));
+          Alert.alert('Success', 'Profile image updated');
+        } catch (e: any) {
+          console.error('Image upload error:', e);
+          Alert.alert('Error', e?.response?.data?.message || 'Failed to upload image. Please try again.');
+        } finally {
+          setUploading(false);
+        }
       }
+    } catch (error) {
+      console.error('Image picker error:', error);
+      Alert.alert('Error', 'Failed to access image library. Please check permissions.');
     }
   };
 
@@ -320,6 +335,36 @@ export default function ProfileScreen() {
               </LinearGradient>
             </TouchableOpacity>
             <TouchableOpacity onPress={() => setShowEditModal(false)} style={{ marginTop: 10, alignSelf: 'center' }}>
+              <Text style={{ color: Colors.primary, fontWeight: 'bold' }}>Cancel</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+      {/* Modal تغيير كلمة المرور */}
+      <Modal visible={showPasswordModal} transparent animationType="slide">
+        <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.2)', justifyContent: 'center', alignItems: 'center' }}>
+          <View style={{ backgroundColor: '#fff', borderRadius: 20, padding: 24, width: '90%' }}>
+            <Text style={{ fontSize: 18, fontWeight: 'bold', color: Colors.primary, marginBottom: 16 }}>Change Password</Text>
+            <TextInput
+              style={[styles.input, { marginBottom: 12 }]}
+              placeholder="Current Password"
+              value={oldPassword}
+              onChangeText={setOldPassword}
+              secureTextEntry
+            />
+            <TextInput
+              style={[styles.input, { marginBottom: 12 }]}
+              placeholder="New Password"
+              value={newPassword}
+              onChangeText={setNewPassword}
+              secureTextEntry
+            />
+            <TouchableOpacity style={[styles.saveButton, { marginTop: 12 }]} onPress={handlePasswordSubmit} disabled={changing}>
+              <LinearGradient colors={[Colors.primary, Colors.secondary]} style={styles.saveGradient}>
+                {changing ? <ActivityIndicator color="#fff" /> : <Text style={styles.saveButtonText}>Change Password</Text>}
+              </LinearGradient>
+            </TouchableOpacity>
+            <TouchableOpacity onPress={() => setShowPasswordModal(false)} style={{ marginTop: 10, alignSelf: 'center' }}>
               <Text style={{ color: Colors.primary, fontWeight: 'bold' }}>Cancel</Text>
             </TouchableOpacity>
           </View>

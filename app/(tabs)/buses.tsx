@@ -206,7 +206,7 @@ export default function BusesScreen() {
               >
                 <Users size={16} color={Colors.primary} />
               </LinearGradient>
-              <Text style={styles.statLabel}>Capacity</Text>
+              <Text style={styles.busStatLabel}>Capacity</Text>
               <Text style={styles.statValue}>
                 {bus.currentLoad || 0}/{bus.capacity}
               </Text>
@@ -231,7 +231,7 @@ export default function BusesScreen() {
               >
                 <MapPin size={16} color={Colors.primary} />
               </LinearGradient>
-              <Text style={styles.statLabel}>Location</Text>
+              <Text style={styles.busStatLabel}>Location</Text>
               <Text style={styles.statValue}>
                 {bus.currentLocation ? 'On Route' : 'At Depot'}
               </Text>
@@ -244,7 +244,7 @@ export default function BusesScreen() {
               >
                 <Clock size={16} color={Colors.primary} />
               </LinearGradient>
-              <Text style={styles.statLabel}>ETA</Text>
+              <Text style={styles.busStatLabel}>ETA</Text>
               <Text style={styles.statValue}>{bus.eta || 'N/A'}</Text>
             </View>
           </View>
@@ -637,7 +637,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: 8,
   },
-  statLabel: {
+  busStatLabel: {
     fontSize: 12,
     color: '#64748b',
     marginBottom: 4,
