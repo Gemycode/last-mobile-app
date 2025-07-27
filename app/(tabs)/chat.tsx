@@ -98,6 +98,7 @@ export default function ChatScreen() {
   const [selectedTrip, setSelectedTrip] = useState<any | null>(null);
   const [tripId, setTripId] = useState<string>('');
   const [driverInfo, setDriverInfo] = useState<any | null>(null);
+  const [parentInfo, setParentInfo] = useState<any | null>(null);
   const [availableTrips, setAvailableTrips] = useState<any[]>([]);
   const [showTripSelector, setShowTripSelector] = useState(false);
 
@@ -260,6 +261,47 @@ export default function ChatScreen() {
     }
   };
 
+  // Load parent info function
+  const loadParentInfo = async (parentId: string) => {
+    try {
+      console.log('Loading parent info for parentId:', parentId);
+      
+      // Try to get parent info from the trip data first
+      if (selectedTrip && selectedTrip.parentId) {
+        if (typeof selectedTrip.parentId === 'object' && selectedTrip.parentId.name) {
+          console.log('Parent info found in trip data:', selectedTrip.parentId);
+          setParentInfo(selectedTrip.parentId);
+          return;
+        }
+      }
+
+      // If not found in trip data, try to fetch from API
+      try {
+        const response = await fetch(`http://192.168.1.4:5000/api/users/${parentId}`);
+        const parentData = await response.json();
+        console.log('Parent info loaded from API:', parentData);
+        setParentInfo(parentData);
+      } catch (apiError: any) {
+        console.error('Error loading parent info from API:', apiError);
+        if (apiError?.response?.status === 403) {
+          console.log('Permission denied to access parent info - this is expected for non-admin users');
+        }
+        setParentInfo({
+          name: 'Parent',
+          firstName: 'Parent',
+          lastName: 'User'
+        });
+      }
+    } catch (error: any) {
+      console.error('Error loading parent info:', error);
+      setParentInfo({
+        name: 'Parent',
+        firstName: 'Parent',
+        lastName: 'User'
+      });
+    }
+  };
+
   // Pull to refresh
   const onRefresh = async () => {
     setRefreshing(true);
@@ -355,6 +397,31 @@ export default function ChatScreen() {
         name: 'Bus Driver',
         firstName: 'Bus',
         lastName: 'Driver'
+      });
+    }
+
+    // Load parent info if we have parentId
+    if (selectedTrip.parentId) {
+      console.log('Parent ID from trip:', selectedTrip.parentId);
+      if (typeof selectedTrip.parentId === 'string') {
+        loadParentInfo(selectedTrip.parentId);
+      } else if (typeof selectedTrip.parentId === 'object' && selectedTrip.parentId.name) {
+        console.log('Parent info found in trip data:', selectedTrip.parentId);
+        setParentInfo(selectedTrip.parentId);
+      } else {
+        console.log('Invalid parentId format:', selectedTrip.parentId);
+        setParentInfo({
+          name: 'Parent',
+          firstName: 'Parent',
+          lastName: 'User'
+        });
+      }
+    } else {
+      console.log('No parentId found in trip data');
+      setParentInfo({
+        name: 'Parent',
+        firstName: 'Parent',
+        lastName: 'User'
       });
     }
   }, [selectedTrip]);
@@ -664,45 +731,101 @@ export default function ChatScreen() {
           style={styles.tripSelectorGradient}
         >
           <View style={styles.tripSelectorHeader}>
-            <Text style={styles.tripSelectorTitle}>اختر الرحلة</Text>
+            <Text style={styles.tripSelectorTitle}>رحلاتي المتاحة</Text>
             <TouchableOpacity onPress={() => setShowTripSelector(false)}>
               <Text style={styles.closeButton}>✕</Text>
             </TouchableOpacity>
           </View>
           
-          <ScrollView style={styles.tripList}>
-            {availableTrips.map((trip, index) => {
-              const tripBusId = trip.busId?._id || trip.busId;
-              const isSelected = selectedTrip?._id === trip._id;
-              
-              return (
-                <TouchableOpacity
-                  key={trip._id}
-                  style={[styles.tripItem, isSelected && styles.selectedTripItem]}
-                  onPress={() => {
-                    setSelectedTrip(trip);
-                    setShowTripSelector(false);
-                  }}
-                >
-                  <View style={styles.tripItemContent}>
-                    <Text style={styles.tripItemTitle}>
-                      رحلة {index + 1} - {trip.studentId?.name || 'Unknown'}
-                    </Text>
-                    <Text style={styles.tripItemDetails}>
-                      الباص: {tripBusId} | الحالة: {trip.status}
-                    </Text>
-                    <Text style={styles.tripItemDate}>
-                      {new Date(trip.date).toLocaleDateString()}
-                    </Text>
-                  </View>
-                  {isSelected && (
-                    <View style={styles.selectedIndicator}>
-                      <Text style={styles.selectedText}>✓</Text>
+                    <ScrollView style={styles.tripList}>
+            {availableTrips.length === 0 ? (
+              <View style={styles.emptyTripsContainer}>
+                <Text style={styles.emptyTripsTitle}>لا توجد رحلات متاحة</Text>
+                <Text style={styles.emptyTripsSubtitle}>
+                  لا توجد رحلات مسجلة لأطفالك حالياً
+                </Text>
+              </View>
+            ) : (
+              availableTrips.map((trip, index) => {
+                const tripBusId = trip.busId?._id || trip.busId;
+                const isSelected = selectedTrip?._id === trip._id;
+                const driverName = trip.driverId?.firstName && trip.driverId?.lastName 
+                  ? `${trip.driverId.firstName} ${trip.driverId.lastName}`
+                  : trip.driverId?.name || 'غير محدد';
+                const busNumber = trip.busId?.BusNumber || trip.busId?.busNumber || 'غير محدد';
+                const studentName = trip.studentId?.firstName && trip.studentId?.lastName
+                  ? `${trip.studentId.firstName} ${trip.studentId.lastName}`
+                  : trip.studentId?.name || 'غير محدد';
+                
+                return (
+                  <TouchableOpacity
+                    key={trip._id}
+                    style={[styles.tripItem, isSelected && styles.selectedTripItem]}
+                    onPress={() => {
+                      setSelectedTrip(trip);
+                      setShowTripSelector(false);
+                    }}
+                  >
+                    <View style={styles.tripItemContent}>
+                      <View style={styles.tripItemHeader}>
+                        <Text style={styles.tripItemTitle}>
+                          رحلة {index + 1} - {studentName}
+                        </Text>
+                        <View style={[styles.statusBadge, 
+                          trip.status === 'started' || trip.status === 'active' ? styles.activeStatus :
+                          trip.status === 'pending' ? styles.pendingStatus :
+                          styles.completedStatus
+                        ]}>
+                          <Text style={styles.statusText}>
+                            {trip.status === 'started' || trip.status === 'active' ? 'نشطة' :
+                             trip.status === 'pending' ? 'في الانتظار' :
+                             trip.status === 'completed' ? 'مكتملة' : trip.status}
+                          </Text>
+                        </View>
+                      </View>
+                      
+                      <View style={styles.tripItemInfo}>
+                        <View style={styles.infoRow}>
+                          <Text style={styles.infoLabel}>الباص:</Text>
+                          <Text style={styles.infoValue}>رقم {busNumber}</Text>
+                        </View>
+                        <View style={styles.infoRow}>
+                          <Text style={styles.infoLabel}>السائق:</Text>
+                          <Text style={styles.infoValue}>{driverName}</Text>
+                        </View>
+                        <View style={styles.infoRow}>
+                          <Text style={styles.infoLabel}>التاريخ:</Text>
+                          <Text style={styles.infoValue}>
+                            {new Date(trip.date).toLocaleDateString('ar-EG')}
+                          </Text>
+                        </View>
+                        <View style={styles.infoRow}>
+                          <Text style={styles.infoLabel}>معرف الرحلة:</Text>
+                          <Text style={styles.infoValue}>{trip._id}</Text>
+                        </View>
+                        {trip.parentId && (
+                          <View style={styles.infoRow}>
+                            <Text style={styles.infoLabel}>الوالد:</Text>
+                            <Text style={styles.infoValue}>
+                              {typeof trip.parentId === 'object' && trip.parentId.name 
+                                ? trip.parentId.name 
+                                : typeof trip.parentId === 'object' && trip.parentId.firstName && trip.parentId.lastName
+                                ? `${trip.parentId.firstName} ${trip.parentId.lastName}`
+                                : 'غير محدد'}
+                            </Text>
+                          </View>
+                        )}
+                      </View>
                     </View>
-                  )}
-                </TouchableOpacity>
-              );
-            })}
+                    {isSelected && (
+                      <View style={styles.selectedIndicator}>
+                        <Text style={styles.selectedText}>✓</Text>
+                      </View>
+                    )}
+                  </TouchableOpacity>
+                );
+              })
+            )}
           </ScrollView>
         </LinearGradient>
       </Animated.View>
@@ -741,15 +864,27 @@ export default function ChatScreen() {
                      <View style={styles.onlineDot} />
                      <Text style={styles.onlineText}>Online Now</Text>
                    </View>
+                   {parentInfo && (
+                     <View style={styles.parentInfo}>
+                       <Text style={styles.parentLabel}>Parent:</Text>
+                       <Text style={styles.parentName}>
+                         {parentInfo.firstName && parentInfo.lastName 
+                           ? `${parentInfo.firstName} ${parentInfo.lastName}` 
+                           : parentInfo.name || 'Unknown Parent'}
+                       </Text>
+                     </View>
+                   )}
                  </View>
               </View>
                              <View style={styles.headerActions}>
-                 {availableTrips.length > 1 && (
+                 {availableTrips.length > 0 && (
                    <TouchableOpacity 
                      style={styles.actionButton}
                      onPress={() => setShowTripSelector(true)}
                    >
-                     <Text style={styles.tripButtonText}>Trip</Text>
+                     <Text style={styles.tripButtonText}>
+                       {availableTrips.length > 1 ? `${availableTrips.length} رحلات` : 'رحلة واحدة'}
+                     </Text>
                    </TouchableOpacity>
                  )}
                  <TouchableOpacity style={styles.actionButton}>
@@ -761,6 +896,22 @@ export default function ChatScreen() {
                  <TouchableOpacity style={styles.actionButton}>
                    <MoreVertical size={20} color="#fff" />
                  </TouchableOpacity>
+                 {parentInfo && (
+                   <TouchableOpacity 
+                     style={styles.actionButton}
+                     onPress={() => {
+                       Alert.alert(
+                         'Parent Information',
+                         `Name: ${parentInfo.firstName && parentInfo.lastName 
+                           ? `${parentInfo.firstName} ${parentInfo.lastName}` 
+                           : parentInfo.name || 'Unknown'}\n\nParent ID: ${selectedTrip?.parentId?._id || selectedTrip?.parentId || 'Unknown'}`,
+                         [{ text: 'OK' }]
+                       );
+                     }}
+                   >
+                     <User size={20} color="#fff" />
+                   </TouchableOpacity>
+                 )}
                </View>
             </View>
           </LinearGradient>
@@ -1351,11 +1502,56 @@ const styles = StyleSheet.create({
   tripItemContent: {
     flex: 1,
   },
+  tripItemHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
   tripItemTitle: {
     fontSize: 16,
     fontWeight: '600',
     color: '#1e293b',
-    marginBottom: 4,
+    flex: 1,
+  },
+  statusBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 12,
+    marginLeft: 8,
+  },
+  activeStatus: {
+    backgroundColor: '#dcfce7',
+  },
+  pendingStatus: {
+    backgroundColor: '#fef3c7',
+  },
+  completedStatus: {
+    backgroundColor: '#e0e7ff',
+  },
+  statusText: {
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  tripItemInfo: {
+    gap: 4,
+  },
+  infoRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 2,
+  },
+  infoLabel: {
+    fontSize: 12,
+    color: '#64748b',
+    fontWeight: '500',
+    width: 60,
+  },
+  infoValue: {
+    fontSize: 12,
+    color: '#1e293b',
+    fontWeight: '600',
+    flex: 1,
   },
   tripItemDetails: {
     fontSize: 14,
@@ -1383,5 +1579,40 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontSize: 12,
     fontWeight: '600',
+  },
+  emptyTripsContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 40,
+  },
+  emptyTripsTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#64748b',
+    marginBottom: 8,
+  },
+  emptyTripsSubtitle: {
+    fontSize: 14,
+    color: '#94a3b8',
+    textAlign: 'center',
+    paddingHorizontal: 20,
+  },
+
+  // Parent Info Styles
+  parentInfo: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 4,
+  },
+  parentLabel: {
+    fontSize: 12,
+    color: '#ffffff',
+    opacity: 0.8,
+    marginRight: 4,
+  },
+  parentName: {
+    fontSize: 12,
+    color: '#ffffff',
+    fontWeight: '500',
   },
 });

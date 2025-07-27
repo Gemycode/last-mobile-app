@@ -2,8 +2,21 @@ import { api } from './api';
 import { useAuthStore } from '../store/authStore';
 
 export const fetchActiveBuses = async () => {
-  const response = await api.get('/bus-locations/active');
-  return response.data; // قائمة الباصات مع المواقع
+  try {
+    console.log('API: Fetching active buses from /bus-locations/active');
+    const response = await api.get('/bus-locations/active');
+    console.log('API: Active buses response received:', response.data);
+    return response.data; // قائمة الباصات مع المواقع
+  } catch (error: any) {
+    console.error('API: Error fetching active buses:', error);
+    console.error('API: Active buses error details:', {
+      message: error?.message,
+      status: error?.response?.status,
+      statusText: error?.response?.statusText,
+      data: error?.response?.data
+    });
+    throw error;
+  }
 };
 
 export const fetchRoutes = async () => {
@@ -17,8 +30,21 @@ export const fetchTrips = async () => {
 };
 
 export const fetchChildren = async () => {
-  const response = await api.get('/users/me/children');
-  return response.data.data.children; // استخراج المصفوفة فقط
+  try {
+    console.log('API: Fetching children from /users/me/children');
+    const response = await api.get('/users/me/children');
+    console.log('API: Children response received:', response.data);
+    return response.data.data.children; // استخراج المصفوفة فقط
+  } catch (error: any) {
+    console.error('API: Error fetching children:', error);
+    console.error('API: Children error details:', {
+      message: error?.message,
+      status: error?.response?.status,
+      statusText: error?.response?.statusText,
+      data: error?.response?.data
+    });
+    throw error;
+  }
 };
 
 export const addChild = async (childData: any) => {
@@ -96,8 +122,22 @@ export const markBusChatAsRead = async (busId: string, userId: string) => {
 };
 
 export const fetchProfileStats = async () => {
-  const response = await api.get('/user/stats');
-  return response.data;
+  try {
+    console.log('API: Fetching profile stats from /dashboard/stats');
+    const response = await api.get('/dashboard/stats');
+    console.log('API: Profile stats response received:', response.data);
+    return response.data;
+  } catch (error: any) {
+    console.error('API: Error fetching profile stats:', error);
+    console.error('API: Profile stats error details:', {
+      message: error?.message,
+      status: error?.response?.status,
+      statusText: error?.response?.statusText,
+      data: error?.response?.data
+    });
+    // Return default stats if API fails
+    return { trips: 0, children: 0, points: 0 };
+  }
 };
 
 export const fetchStudentBookings = async (studentId: string) => {

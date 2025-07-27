@@ -35,6 +35,8 @@ export default function ChildrenScreen() {
   const [editChild, setEditChild] = useState<any | null>(null);
   const [refreshing, setRefreshing] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   const user = useAuthStore(state => state.user);
 
@@ -57,14 +59,64 @@ export default function ChildrenScreen() {
   // جلب الأطفال والباصات
   const loadData = async () => {
     try {
+      setLoading(true);
+      setError(null);
+      console.log('Loading children and buses data...');
+      
+      let hasError = false;
+      
       if (user?.role === 'parent') {
-        const childrenData = await fetchChildren();
-        setChildren(childrenData);
+        try {
+          console.log('Fetching children data...');
+          const childrenData = await fetchChildren();
+          console.log('Children data loaded successfully:', childrenData);
+          setChildren(childrenData);
+        } catch (childrenError: any) {
+          console.error('Error fetching children:', childrenError);
+          console.error('Children error details:', {
+            message: childrenError?.message,
+            status: childrenError?.response?.status,
+            statusText: childrenError?.response?.statusText,
+            data: childrenError?.response?.data
+          });
+          // Set empty array on error to prevent UI issues
+          setChildren([]);
+          hasError = true;
+        }
       }
-      const busesData = await fetchActiveBuses();
-      setBuses(busesData);
-    } catch (error) {
+      
+      try {
+        console.log('Fetching active buses data...');
+        const busesData = await fetchActiveBuses();
+        console.log('Buses data loaded successfully:', busesData);
+        setBuses(busesData);
+      } catch (busesError: any) {
+        console.error('Error fetching buses:', busesError);
+        console.error('Buses error details:', {
+          message: busesError?.message,
+          status: busesError?.response?.status,
+          statusText: busesError?.response?.statusText,
+          data: busesError?.response?.data
+        });
+        // Set empty array on error to prevent UI issues
+        setBuses([]);
+        hasError = true;
+      }
+      
+      if (hasError) {
+        setError('Network connection issue. Please check your internet connection and try again.');
+      }
+    } catch (error: any) {
       console.error('Error loading data:', error);
+      console.error('General error details:', {
+        message: error?.message,
+        status: error?.response?.status,
+        statusText: error?.response?.statusText,
+        data: error?.response?.data
+      });
+      setError('Failed to load data. Please try again.');
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -248,6 +300,34 @@ export default function ChildrenScreen() {
       <CustomHeader title="Children" subtitle="Manage your children" showNotifications={false} />
       <StatusBar style="light" />
       
+      {/* Loading State */}
+      {loading && (
+        <View style={styles.loadingContainer}>
+          <Activity size={40} color={Colors.primary} />
+          <Text style={styles.loadingText}>Loading children data...</Text>
+        </View>
+      )}
+      
+      {/* Error State */}
+      {error && !loading && (
+        <View style={styles.errorContainer}>
+          <Text style={styles.errorTitle}>Connection Error</Text>
+          <Text style={styles.errorMessage}>{error}</Text>
+          <TouchableOpacity
+            style={styles.retryButton}
+            onPress={loadData}
+            activeOpacity={0.8}
+          >
+            <LinearGradient
+              colors={[Colors.primary, '#3A6D8C']}
+              style={styles.retryButtonGradient}
+            >
+              <Text style={styles.retryButtonText}>Retry</Text>
+            </LinearGradient>
+          </TouchableOpacity>
+        </View>
+      )}
+      
       {/* Add/Edit Child Form */}
       {showAddForm && (
         <Animated.View 
@@ -355,18 +435,19 @@ export default function ChildrenScreen() {
       )}
 
       {/* Children List */}
-      <ScrollView 
-        style={styles.content} 
-        showsVerticalScrollIndicator={false}
-        refreshControl={
-          <RefreshControl 
-            refreshing={refreshing}
-            onRefresh={onRefresh}
-            tintColor={Colors.primary}
-            colors={[Colors.primary]}
-          />
-        }
-      >
+      {!loading && !error && (
+        <ScrollView 
+          style={styles.content} 
+          showsVerticalScrollIndicator={false}
+          refreshControl={
+            <RefreshControl 
+              refreshing={refreshing}
+              onRefresh={onRefresh}
+              tintColor={Colors.primary}
+              colors={[Colors.primary]}
+            />
+          }
+        >
         {/* Header Section */}
         <Animated.View entering={FadeInUp.delay(100)} style={styles.headerSection}>
           <View style={styles.statsContainer}>
@@ -467,6 +548,7 @@ export default function ChildrenScreen() {
           )}
         </View>
       </ScrollView>
+      )}
     </>
   );
 }
@@ -833,6 +915,57 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   emptyStateButtonText: {
+    color: '#fff',
+    fontWeight: 'bold',
+    fontSize: 16,
+  },
+  
+  // Loading State
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingVertical: 60,
+  },
+  loadingText: {
+    fontSize: 16,
+    color: Colors.gray[600],
+    marginTop: 16,
+    textAlign: 'center',
+  },
+  
+  // Error State
+  errorContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 24,
+    paddingVertical: 60,
+  },
+  errorTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: Colors.gray[800],
+    marginBottom: 12,
+    textAlign: 'center',
+  },
+  errorMessage: {
+    fontSize: 14,
+    color: Colors.gray[600],
+    textAlign: 'center',
+    marginBottom: 24,
+    lineHeight: 20,
+  },
+  retryButton: {
+    borderRadius: 16,
+    overflow: 'hidden',
+  },
+  retryButtonGradient: {
+    paddingVertical: 12,
+    paddingHorizontal: 24,
+    alignItems: 'center',
+  },
+  retryButtonText: {
     color: '#fff',
     fontWeight: 'bold',
     fontSize: 16,

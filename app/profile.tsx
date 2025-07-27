@@ -6,7 +6,7 @@ import Card from '../components/Card';
 import { Colors } from '../constants/Colors';
 import { useAuthStore } from '../store/authStore';
 import { useRouter } from 'expo-router';
-import { fetchCurrentUser, changePassword, updateCurrentUser, uploadProfileImage, fetchProfileStats } from '../services/busService';
+import { fetchCurrentUser, changePassword, updateCurrentUser, uploadProfileImage } from '../services/busService';
 import { useThemeStore } from '../store/appStore';
 import * as ImagePicker from 'expo-image-picker';
 import { StatusBar } from 'expo-status-bar';
@@ -30,7 +30,7 @@ export default function ProfileScreen() {
   const [uploading, setUploading] = useState(false);
   const [notificationsEnabled, setNotificationsEnabled] = useState(true);
   const [darkMode, setDarkMode] = useState(theme === 'dark');
-  const [profileStats, setProfileStats] = useState<{trips: number, children: number, points: number} | null>(null);
+
 
   useEffect(() => {
     if (storeUser) {
@@ -40,11 +40,7 @@ export default function ProfileScreen() {
         console.error('Error fetching current user:', error);
         setUser(storeUser);
       });
-      fetchProfileStats().then(setProfileStats).catch((error) => {
-        console.error('Error fetching profile stats:', error);
-        // Set default stats if API fails
-        setProfileStats({ trips: 0, children: 0, points: 0 });
-      });
+
     }
   }, [storeUser]);
 
